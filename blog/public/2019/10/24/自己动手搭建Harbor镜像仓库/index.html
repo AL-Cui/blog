@@ -6,15 +6,24 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <link rel="dns-prefetch" href="http://yoursite.com">
-  <title>Archives | AL-Cui的技术水果摊</title>
+  <title>AL-Cui的技术水果摊</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta property="og:type" content="website">
+  <meta name="description" content="自己动手搭建Harbor镜像仓库 官方的安装文档讲的很详细，这里我们推荐使用离线安装，虽然安装包比较大 离线安装包下载地址添加链接描述离线安装HTTP Harbor安装之前先安装docker-compose我们下载玩安装包以后tar xvf harbor-offline-installer-&amp;lt;version&amp;gt;.tgz解压缩，可以看到里边有两个安装脚本prepare.sh和install">
+<meta property="og:type" content="article">
 <meta property="og:title" content="AL-Cui的技术水果摊">
-<meta property="og:url" content="http://yoursite.com/archives/index.html">
+<meta property="og:url" content="http://yoursite.com/2019/10/24/自己动手搭建Harbor镜像仓库/index.html">
 <meta property="og:site_name" content="AL-Cui的技术水果摊">
+<meta property="og:description" content="自己动手搭建Harbor镜像仓库 官方的安装文档讲的很详细，这里我们推荐使用离线安装，虽然安装包比较大 离线安装包下载地址添加链接描述离线安装HTTP Harbor安装之前先安装docker-compose我们下载玩安装包以后tar xvf harbor-offline-installer-&amp;lt;version&amp;gt;.tgz解压缩，可以看到里边有两个安装脚本prepare.sh和install">
 <meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20191024175314747.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/2019102418014919.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20191024180231806.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70">
+<meta property="og:image" content="https://img-blog.csdnimg.cn/20191024180304870.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70">
+<meta property="og:updated_time" content="2019-10-24T10:25:57.302Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="AL-Cui的技术水果摊">
+<meta name="twitter:description" content="自己动手搭建Harbor镜像仓库 官方的安装文档讲的很详细，这里我们推荐使用离线安装，虽然安装包比较大 离线安装包下载地址添加链接描述离线安装HTTP Harbor安装之前先安装docker-compose我们下载玩安装包以后tar xvf harbor-offline-installer-&amp;lt;version&amp;gt;.tgz解压缩，可以看到里边有两个安装脚本prepare.sh和install">
+<meta name="twitter:image" content="https://img-blog.csdnimg.cn/20191024175314747.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70">
   
     <link rel="alternative" href="/atom.xml" title="AL-Cui的技术水果摊" type="application/atom+xml">
   
@@ -156,237 +165,168 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            
-  
-  
+            <article id="post-自己动手搭建Harbor镜像仓库" class="article article-type-post " itemscope itemprop="blogPost">
+  <div class="article-inner">
     
-    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="自己动手搭建Harbor镜像仓库"><a href="#自己动手搭建Harbor镜像仓库" class="headerlink" title="自己动手搭建Harbor镜像仓库"></a>自己动手搭建Harbor镜像仓库</h2><ul>
+<li>官方的<a href="https://github.com/goharbor/harbor/blob/master/docs/installation_guide.md" target="_blank" rel="noopener">安装文档</a>讲的很详细，这里我们推荐使用离线安装，虽然安装包比较大</li>
+<li>离线安装包下载地址<a href="https://storage.googleapis.com/harbor-releases/release-1.9.0/harbor-offline-installer-v1.9.1.tgz" target="_blank" rel="noopener">添加链接描述</a><h2 id="离线安装HTTP-Harbor"><a href="#离线安装HTTP-Harbor" class="headerlink" title="离线安装HTTP Harbor"></a>离线安装HTTP Harbor</h2>安装之前先安装docker-compose<br>我们下载玩安装包以后<code>tar xvf harbor-offline-installer-&lt;version&gt;.tgz</code>解压缩，可以看到里边有两个安装脚本prepare.sh和install.sh以及harbor.yml。然后修改harbor.yml中配置参数：</li>
+<li>将hostname改为自己的ip</li>
+<li>将data_volume改为自己想存放的路径</li>
+<li>database此参数可以修改为自己的数据库地址，也可以不改harbor会自己创建harbor-db容器</li>
+<li>http:port可以修改harbor仓库的端口号</li>
+</ul>
+<p>配置完参数后我们就可以<code>./install.sh</code>来安装harbor了。当然这时也可以通过传入参数来配置，我们可以使用<code>./install.sh --with-chartmuseum</code>来使我们的harbor可以管理存储chart。执行指令完成后我们可以看到docker-compose已经为我们启动了一些列容器<br><img src="https://img-blog.csdnimg.cn/20191024175314747.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<p>Harbor还可以管理其他的镜像仓库，我们可以配置同步策略（手动或者定时），实现Harbor仓库和其他镜像仓库的交互同步。</p>
+<ol>
+<li>新建目标<img src="https://img-blog.csdnimg.cn/2019102418014919.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+<li>编辑目标<img src="https://img-blog.csdnimg.cn/20191024180231806.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+<li>新建规则<img src="https://img-blog.csdnimg.cn/20191024180304870.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><h2 id="向Harbor批量导入docker镜像"><a href="#向Harbor批量导入docker镜像" class="headerlink" title="向Harbor批量导入docker镜像"></a>向Harbor批量导入docker镜像</h2>这里我们参考rancher的方法，rancher提供了一个自动化脚本，可以批量导入多个docker image。首先我们要将要导入的docker image打成一个tgz包，打包脚本如下：</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bashIMAGES_LIST=($(docker images | sed &apos;1d&apos; | awk &apos;&#123;print $1&quot;:&quot;$2&#125;&apos;))</span><br><span class="line">docker save $&#123;IMAGES_LIST[*]&#125; -o all-images.tar.gz</span><br><span class="line">docker images | sed &apos;1d&apos; | awk &apos;&#123;print $1&quot;:&quot;$2&#125;&apos; &gt;&gt; ./all-images.txt</span><br></pre></td></tr></table></figure>
+
+<p>rancher脚本下载<a href="https://github.com/rancher/rancher/releases/download/v2.3.1/rancher-load-images.sh" target="_blank" rel="noopener">地址</a>。推送image到远端Harbor指令如下：<code>./rancher-load-images.sh   -l  all-images.txt   -i  all-images.tar.gz   -r  172.23.5.71:80/library  #仓库地址以及具体的项目</code></p>
+
+      
+
+      
+        <div class="page-reward">
+          <a href="javascript:;" class="page-reward-btn tooltip-top">
+            <div class="tooltip tooltip-east">
+            <span class="tooltip-item">
+              赏
+            </span>
+            <span class="tooltip-content">
+              <span class="tooltip-text">
+                <span class="tooltip-inner">
+                  <p class="reward-p"><i class="icon icon-quo-left"></i>谢谢你请我吃水果<i class="icon icon-quo-right"></i></p>
+                  <div class="reward-box">
+                    
+                    <div class="reward-box-item">
+                      <img class="reward-img" src="/img/alipay.jpg">
+                      <span class="reward-type">支付宝</span>
+                    </div>
+                    
+                    
+                    <div class="reward-box-item">
+                      <img class="reward-img" src="/img/wei.png">
+                      <span class="reward-type">微信</span>
+                    </div>
+                    
+                  </div>
+                </span>
+              </span>
+            </span>
+          </div>
+          </a>
+        </div>
+      
+    </div>
+    <div class="article-info article-info-index">
       
       
-      <section class="archives-wrap">
-        <div class="archive-year-wrap">
-          <a href="/archives/2019" class="archive-year">2019</a>
-        </div>
-        <div class="archives">
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/10/24/自己动手搭建Harbor镜像仓库/" class="archive-article-date">
-  	<time datetime="2019-10-24T10:25:57.297Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-24</time>
-</a>
-        </div>
-    	 
-        <div class="article-info info-on-right">
-          
-          
+      
 
+      
+
+      
+        
+<div class="share-btn share-icons tooltip-left">
+  <div class="tooltip tooltip-east">
+    <span class="tooltip-item">
+      <a href="javascript:;" class="share-sns share-outer">
+        <i class="icon icon-share"></i>
+      </a>
+    </span>
+    <span class="tooltip-content">
+      <div class="share-wrap">
+        <div class="share-icons">
+          <a class="weibo share-sns" href="javascript:;" data-type="weibo">
+            <i class="icon icon-weibo"></i>
+          </a>
+          <a class="weixin share-sns wxFab" href="javascript:;" data-type="weixin">
+            <i class="icon icon-weixin"></i>
+          </a>
+          <a class="qq share-sns" href="javascript:;" data-type="qq">
+            <i class="icon icon-qq"></i>
+          </a>
+          <a class="douban share-sns" href="javascript:;" data-type="douban">
+            <i class="icon icon-douban"></i>
+          </a>
+          <a class="qzone share-sns" href="javascript:;" data-type="qzone">
+            <i class="icon icon-qzone"></i>
+          </a>
+          <a class="facebook share-sns" href="javascript:;" data-type="facebook">
+            <i class="icon icon-facebook"></i>
+          </a>
+          <a class="twitter share-sns" href="javascript:;" data-type="twitter">
+            <i class="icon icon-twitter"></i>
+          </a>
+          <a class="google share-sns" href="javascript:;" data-type="google">
+            <i class="icon icon-google"></i>
+          </a>
         </div>
-        <div class="clearfix"></div>
-    </header>
+      </div>
+    </span>
+  </div>
+</div>
+
+<div class="page-modal wx-share js-wx-box">
+    <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
+    <p>扫一扫，分享到微信</p>
+    <div class="wx-qrcode">
+      <img src="//pan.baidu.com/share/qrcode?url=http://yoursite.com/2019/10/24/自己动手搭建Harbor镜像仓库/" alt="微信分享二维码">
+    </div>
+</div>
+
+<div class="mask js-mask"></div>
+      
+      <div class="clearfix"></div>
+    </div>
   </div>
 </article>
+
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/10/11/山不在高/" class="archive-article-date">
-  	<time datetime="2019-10-11T07:19:49.453Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
-</a>
+<nav id="article-nav">
+  
+  
+    <a href="/2019/10/11/山不在高/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">读书人要有读书人的样子</div>
+      <i class="icon-circle-right"></i>
+    </a>
+  
+</nav>
+
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
         </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/10/11/山不在高/">读书人要有读书人的样子</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-	<div class="article-tag tagcloud">
-		<i class="icon-price-tags icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">山不在高</a>
-        		</li>
-      		 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">随笔</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/10/11/Ansible-playbook 关于ssh的配置和使用/" class="archive-article-date">
-  	<time datetime="2019-10-11T05:28:55.578Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/10/11/Ansible-playbook 关于ssh的配置和使用/">ansible中配置ssh</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Ansible//" class="article-tag-list-link color3">Ansible</a>
-        		</li>
-      		
-		</ul>
-	</div>
+        
+        
+    </div>
+</aside>
 
 
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
+
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/10/11/k8s集群中部署Calico踩坑笔记/" class="archive-article-date">
-  	<time datetime="2019-10-11T05:25:04.544Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
-</a>
-        </div>
-    	 
   
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/10/11/k8s集群中部署Calico踩坑笔记/">k8s集群部署Calico踩坑</a>
-    </h1>
   
 
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/10/11/Golang 1.10 获取Windows上的硬件数据信息/" class="archive-article-date">
-  	<time datetime="2019-10-11T05:23:10.673Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/10/11/Golang 1.10 获取Windows上的硬件数据信息/">Golang获取windows硬件数据</a>
-    </h1>
   
 
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Golang//" class="article-tag-list-link color2">Golang</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2019/10/11/自己动手搭建kubernetes dashboard界面/" class="archive-article-date">
-  	<time datetime="2019-10-11T02:28:24.693Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/10/11/自己动手搭建kubernetes dashboard界面/">kubernetes dashboard</a>
-    </h1>
   
 
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
   
-  
-    </div></section>
-  
-
-    
 
 
           </div>
@@ -412,8 +352,8 @@
 	var yiliaConfig = {
 		mathjax: false,
 		isHome: false,
-		isPost: false,
-		isArchive: true,
+		isPost: true,
+		isArchive: false,
 		isTag: false,
 		isCategory: false,
 		open_in_new: false,
