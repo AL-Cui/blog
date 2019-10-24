@@ -1,4 +1,9 @@
-﻿## 自己动手搭建Harbor镜像仓库
+﻿---
+title: 自己动手搭建Harbor镜像仓库
+categories: Kubernetes
+---
+
+## 自己动手搭建Harbor镜像仓库
 
  - 官方的[安装文档](https://github.com/goharbor/harbor/blob/master/docs/installation_guide.md)讲的很详细，这里我们推荐使用离线安装，虽然安装包比较大
  - 离线安装包下载地址[添加链接描述](https://storage.googleapis.com/harbor-releases/release-1.9.0/harbor-offline-installer-v1.9.1.tgz)
