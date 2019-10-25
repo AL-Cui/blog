@@ -4,7 +4,14 @@ categories: Kubernetes
 ---
 
 ## 自己动手搭建Harbor镜像仓库
+近期Harbor v1.9 正式面市，该版本称得上是目前功能最多的版本之一，新版本增加了多项优秀功能。
+ - Webhook。项目管理员现在可以通过 Webhook 的通知机制，将 Harbor 的项目与技术栈的其余部分连接在一起，简化持续集成和开发过程。
+ - 配额。项目管理员可以通过配额限制项目所含 tag 的数目及项目可占用的存储容量（全局和个体），有助于对资源使用加以控制
+ - Tag 保留。Harbor 的存储中可能会迅速累积起大量镜像的文件，现在，项目管理员可以利用新的 Tag 保留功能更好地管理镜像生命周期并优化存储分配。
+ - CVE 例外策略。该功能允许项目管理员创建一个 CVE 白名单，允许某些镜像在有限的时间段内运行，而不管是否具有特定 CVE 安全漏洞。
+ - 内容复制的改进。新版本的 Harbor 可实现与大多数主流云提供商 Registry 的无缝双向复制，满足客户的众多需求和用例。
 
+ 下载地址：
  - 官方的[安装文档](https://github.com/goharbor/harbor/blob/master/docs/installation_guide.md)讲的很详细，这里我们推荐使用离线安装，虽然安装包比较大
  - 离线安装包下载地址[添加链接描述](https://storage.googleapis.com/harbor-releases/release-1.9.0/harbor-offline-installer-v1.9.1.tgz)
 ## 离线安装HTTP Harbor
