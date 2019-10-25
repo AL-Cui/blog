@@ -16,7 +16,7 @@ categories: Kubernetes
  - 离线安装包下载地址[添加链接描述](https://storage.googleapis.com/harbor-releases/release-1.9.0/harbor-offline-installer-v1.9.1.tgz)
 ## 离线安装HTTP Harbor
 安装之前先安装docker-compose
-我们下载玩安装包以后`tar xvf harbor-offline-installer-<version>.tgz`解压缩，可以看到里边有两个安装脚本prepare.sh和install.sh以及harbor.yml。然后修改harbor.yml中配置参数：
+我们下载完安装包以后`tar xvf harbor-offline-installer-<version>.tgz`解压缩，可以看到里边有两个安装脚本prepare.sh和install.sh以及harbor.yml。然后修改harbor.yml中配置参数：
  - 将hostname改为自己的ip
  - 将data_volume改为自己想存放的路径
  - database此参数可以修改为自己的数据库地址，也可以不改harbor会自己创建harbor-db容器
