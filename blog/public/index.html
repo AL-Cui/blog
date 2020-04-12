@@ -158,6 +158,500 @@
           <div id="js-content" class="content-ll">
             
   
+    <article id="post-Kubernetes的Limits和Requests" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2020/04/12/Kubernetes的Limits和Requests/">kubernetes中的Requests和Limits</a>
+    </h1>
+  
+
+        
+        <a href="/2020/04/12/Kubernetes的Limits和Requests/" class="archive-article-date">
+  	<time datetime="2020-04-12T12:11:47.684Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-12</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>在k8s的集群环境中，资源的合理分配和使用至关重要。毕竟容器化要解决的问题之一就是资源的充分利用。在集群中分配资源的时候就不得不提到Limits和Requests。</p>
+<h1 id="Namespace配额"><a href="#Namespace配额" class="headerlink" title="Namespace配额"></a>Namespace配额</h1><p>众所周知，Kubernetes 是允许管理员在命名空间中指定资源 Requests 和 Limits 的，这一特性对于资源管理限制非常有用。但它目前还存在一定局限：<strong>如果管理员在命名空间中设置了 CPU  Requests 配额，那么所有 Pod 也要在其定义中设置 CPU  Requests，否则就无法被调配资源。</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ResourceQuota</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">mem-cpu-example</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">  hard:</span></span><br><span class="line">    <span class="string">requests.cpu:</span> <span class="number">4</span></span><br><span class="line">    <span class="string">requests.memory:</span> <span class="number">4</span><span class="string">Gi</span></span><br><span class="line">    <span class="string">limits.cpu:</span> <span class="number">6</span></span><br><span class="line">    <span class="string">limits.memory:</span> <span class="number">6</span><span class="string">Gi</span></span><br></pre></td></tr></table></figure>
+
+<p>这是一个简单的ResourceQuota类型，也就是针对Namespace的配额。它会针对Namespace做如下限额：</p>
+<ul>
+<li>所有 CPU Requests 的总和不能超过 4 个内核</li>
+<li>所有 RAM Requests 的总和不能超过 4GiB</li>
+<li>所有 CPU Limits 的总和不能超过 6个内核</li>
+<li>所有 RAM Limits 的总和不能超过 6GiB</li>
+</ul>
+<h1 id="针对Pod的Request和Limit"><a href="#针对Pod的Request和Limit" class="headerlink" title="针对Pod的Request和Limit"></a>针对Pod的Request和Limit</h1><p>刚才讲到我们可以针对Pod进行资源限额，同样也可以设置Pod申请资源的Request和Limit。k8s中会将一个CPU分成1000个shares，这和Cgroup中分成1024略有差异。正常情况下requests的数值应该小于limits，那么该Pod获得的资源可以分为两部分：</p>
+<ul>
+<li>完全可靠的资源，资源量大小等于requests值</li>
+<li>不可靠的资源，资源量最大等于limits和requests的差额，这份不可靠的资源能够申请到多少，取决于当时主机上容器可用资源的余量。<br>如下例：</li>
+</ul>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">extensions/v1beta1</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr"> name:</span> <span class="string">redis</span></span><br><span class="line"><span class="attr"> labels:</span></span><br><span class="line"><span class="attr">   name:</span> <span class="string">redis</span></span><br><span class="line"><span class="attr">   app:</span> <span class="string">redis-app</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr"> replicas:</span> <span class="number">2</span></span><br><span class="line"><span class="attr"> selector:</span></span><br><span class="line"><span class="attr">   matchLabels:</span></span><br><span class="line"><span class="attr">    name:</span> <span class="string">redis</span></span><br><span class="line"><span class="attr">    role:</span> <span class="string">redisdb</span></span><br><span class="line"><span class="attr">    app:</span> <span class="string">redis-app</span></span><br><span class="line"><span class="attr"> template:</span></span><br><span class="line"><span class="attr">   spec:</span></span><br><span class="line"><span class="attr">     containers:</span></span><br><span class="line"><span class="attr">       - name:</span> <span class="string">redis</span></span><br><span class="line"><span class="attr">         image:</span> <span class="attr">redis:5.0.3-alpine</span></span><br><span class="line"><span class="attr">         resources:</span></span><br><span class="line"><span class="attr">           limits:</span></span><br><span class="line"><span class="attr">             memory:</span> <span class="number">500</span><span class="string">Mi</span></span><br><span class="line"><span class="attr">             cpu:</span> <span class="number">1</span></span><br><span class="line"><span class="attr">           requests:</span></span><br><span class="line"><span class="attr">             memory:</span> <span class="number">250</span><span class="string">Mi</span></span><br><span class="line"><span class="attr">             cpu:</span> <span class="number">500</span><span class="string">m</span></span><br><span class="line"><span class="attr">       - name:</span> <span class="string">busybox</span></span><br><span class="line"><span class="attr">         image:</span> <span class="attr">busybox:1.28</span></span><br><span class="line"><span class="attr">         resources:</span></span><br><span class="line"><span class="attr">           limits:</span></span><br><span class="line"><span class="attr">             memory:</span> <span class="number">100</span><span class="string">Mi</span></span><br><span class="line"><span class="attr">             cpu:</span> <span class="number">100</span><span class="string">m</span></span><br><span class="line"><span class="attr">           requests:</span></span><br><span class="line"><span class="attr">             memory:</span> <span class="number">50</span><span class="string">Mi</span></span><br><span class="line"><span class="attr">             cpu:</span> <span class="number">50</span><span class="string">m</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Pod 中共两个容器，的有效  Request  是 300MiB 的内存和 550 毫核（millicore）的 CPU。我们需要一个具有足够可用可分配空间的节点来调度 Pod</li>
+<li>如果 Redis 容器尝试分配超过 500MB 的 RAM，就会被 OOM-killer</li>
+<li>如果 Redis 容器尝试每 100ms 使用 100ms 以上的 CPU，那么 Redis 就会受到 CPU 限制（如果我们一共有 4 个内核，可用时间为 400ms/100ms），从而导致性能下降</li>
+<li>如果 busybox 容器尝试分配 100MB 以上的 RAM，也会引起 OOM</li>
+<li>如果 busybox 容器尝试每 100ms 使用 10ms 以上的 CPU，也会使 CPU 受到限制，从而导致性能下降<br>需要注意的是，<strong>Kubernetes 限制的是每个容器，而不是每个 Pod</strong>。其他 CPU 指标，如共享 CPU 资源使用情况，只对分配有参考价值，所以如果遇到了性能上的问题，建议不要在这些指标上浪费时间。<h1 id="Requests等于Limits-的时候"><a href="#Requests等于Limits-的时候" class="headerlink" title="Requests等于Limits 的时候"></a>Requests等于Limits 的时候</h1>一般情况下我们设置的Requests值一般都要小于Limits，但是也存在特殊情况。涉及到一个概念就是<strong>服务质量等级</strong></li>
+<li><strong>Guaranteed</strong>（完全可靠的）；Limits==requests,或者只设置了Limits，此时默认requests等于limits</li>
+<li><strong>Burstable</strong>（弹性波动、较可靠的）；分为两种情况：1、Pod中一部分容器在一种或多种资源类型中配置了requests和limits，2、Pod中一部分容器未定义资源配置（requests和limits都未配置）</li>
+<li><strong>BestEffort</strong>（尽力而为、不太可靠的）；Pod所有中所有容器都未定义requests和limits</li>
+</ul>
+<p><strong>注意：在容器未定义limits时，limits值默认是节点资源容量的上限。</strong></p>
+<p>另外，<strong>当我们分配CPU的requests和limits相等的时候，就是指该容器独占CPU，需要在kubelet服务的配置中增加<code>--cpu-manager-policy=static</code></strong></p>
+<h1 id="可压缩资源和不可压缩资源"><a href="#可压缩资源和不可压缩资源" class="headerlink" title="可压缩资源和不可压缩资源"></a>可压缩资源和不可压缩资源</h1><p>我们上文提到，在容器可使用的资源有CPU和内存。所以我们拓展一下k8s集群中的可压缩资源和不可压缩资源概念。<br>在k8s中，<strong>CPU就是可压缩资源</strong>。空闲的CPU资源会按照容器的requests值得比例进行分配，举例说明：容器A requests1 limits 10；容器B requests2 limits 8，加入一开始该节点上可用CPU位3，那么两个容器恰好得到各自requests的量。此时节点又释放了1.5CPU，A和B都需要更多CPU资源，那么这1.5CPU就会按照A和B的requests量按比例分配，最后A得到1.5CPU，B得到3CPU。</p>
+<p><strong>目前，k8s支持的不可压缩资源是内存</strong>。Pod中可以得到requests的内存量，如果Pod使用小于该值，那么Pod正常运行；如果Pod使用超过了该值极=就有可能被k8s杀掉。比如，Pod A使用了大于requests但是小于limits的内存，此时Pod B使用了小于requests的内存，但是Pod B中的程序突然压力增大，向k8s请求更多的但是不超过自己requests的内存资源，而节点上已没有空闲内存资源，这时候k8s就可能会直接kill Pod A。</p>
+<h1 id="选择可靠的Requests和Limits"><a href="#选择可靠的Requests和Limits" class="headerlink" title="选择可靠的Requests和Limits"></a>选择可靠的Requests和Limits</h1><p>具备一定 Kubernetes 经验的人都知道正确设置 Request 和 Limit 对于应用程序和集群的性能的重要性。</p>
+<p>理想情况下，Pod 请求多少资源，它就用多少资源，但在现实场景下，资源使用是不断变化的，而且它的变化没有规律，不可预测。</p>
+<p>如果 Pod 的资源使用量远低于请求量，那会导致资源（金钱）浪费；如果资源使用量高于请求量，那就会使节点出现性能问题。因此在实际操作中，我们可以把  Request 值上下浮动 25％ 作为一个良性参考标准。</p>
+<p>而关于 Limit，设置合理的 Limit 数值其实需要尝试，因为它主要取决于应用程序的性质、需求模型、对错误的容忍度以及许多其他因素，没有固定答案。<br><img src="https://img-blog.csdnimg.cn/20200412200909653.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br><strong>另一件需要考虑的事是在节点上允许的 Limits 过量使用。</strong><br><img src="https://img-blog.csdnimg.cn/20200412200932891.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="
+"></p>
+<p><strong>这些 Limits 由用户执行，因为 Kubernetes 没有关于超额使用的自动化机制。</strong></p>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+	<div class="article-category tagcloud">
+		<i class="icon-book icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2020/04/12/Kubernetes的Limits和Requests/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-Istio怎么劫持了流量" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2020/04/05/Istio怎么劫持了流量/">Istio怎么劫持了流量</a>
+    </h1>
+  
+
+        
+        <a href="/2020/04/05/Istio怎么劫持了流量/" class="archive-article-date">
+  	<time datetime="2020-04-05T10:43:51.816Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="Istio怎么劫持了流量"><a href="#Istio怎么劫持了流量" class="headerlink" title="Istio怎么劫持了流量"></a>Istio怎么劫持了流量</h1><p>当我们使用istio的时候，有时候会思考Istio到底是怎么劫持了k8s集群的流量呢？<br>首先我们要明白k8s本身的流量是怎么流转的。举个例子，服务A通过服务B部署时注册的Service名称来填写调用地址，这个地址被翻译成一个域名，通过k8s中的私有DNS系统翻译成一个虚拟的ClusterIP，再通过部署在每一个节点上的Kube-proxy服务负载给Service对应的Pod。那使用Istio的部署会对k8s<br>原有的服务网格结构造成哪些影响呢？</p>
+<h1 id="Sidecar"><a href="#Sidecar" class="headerlink" title="Sidecar"></a>Sidecar</h1><p>Sidecar是与应用一起部署的，它代理一切出入应用的请求，并将其转发到正确的目的地。这样一来，复杂的分布式调用网络本身就对应用透明了。也许会有人对单独部署一个Sidecar进程的稳定性产生疑问，Sidecar的独特之处就在于每个应用本身都独立部署了一套进程，即使出问题也只影响一个或几个服务。</p>
+<h2 id="Sidecar的注入方式"><a href="#Sidecar的注入方式" class="headerlink" title="Sidecar的注入方式"></a>Sidecar的注入方式</h2><p>Sidecar的部署支持自动注入与手动配置两种方式，手动注入需要对部署的yaml文件进行简单的修改即可。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">istioctl kube-inject -f book-info.yml | kubectl apply -f -</span><br></pre></td></tr></table></figure>
+
+<p>自动注入目前需要k8s配合使用，只需将应用对应的Namespace设置一个label即可</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl label namespace default istio-injection=enabled</span><br></pre></td></tr></table></figure>
+
+<p>这样一来，服务一旦启动，Sidecar就会使用Kubernetes的Mutating Webhook Admission Controller扩展自动注入。<br>那么，Mutating Webhook Admission Controller是怎么自动注入的呢？为什么配置了自动注入的namespace就会在创建pod的时候创建Sidecar容器呢？</p>
+<h1 id="动态准入控制"><a href="#动态准入控制" class="headerlink" title="动态准入控制"></a>动态准入控制</h1><p>Admission webhook是一种用于接收准入请求并对其进行处理的HTTP回调机制。可以定义两种类型的admission webhook，即 validating admission webhook 和 mutating admission webhook。 Mutating admission webhook 会先被调用。<strong>它们可以更改发送到 API 服务器的对象以执行自定义的设置默认值操作</strong>。在完成了所有对象修改并且 API 服务器也验证了所传入的对象之后，validating admission webhook 会被调用，并通过拒绝请求的方式来强制实施自定义的策略。这样，就回答了为什么配置自动注入后创建的pod就能自动创建Sidecar容器。<br>那么，Istio中的mutating admission webhook是怎么定义的呢？其实，要想使用admission webhook首先要定义 ValidatingWebhookConfiguration 或者 MutatingWebhookConfiguration 动态配置哪些资源要被哪些 admission webhook 处理。Istio中定义的MutatingWebhookConfiguration如下：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Source: istio/charts/sidecarInjectorWebhook/templates/mutatingwebhook.yaml</span></span><br><span class="line"></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">admissionregistration.k8s.io/v1beta1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">MutatingWebhookConfiguration</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">istio-sidecar-injector</span></span><br><span class="line"><span class="attr">  labels:</span></span><br><span class="line"><span class="attr">    app:</span> <span class="string">sidecarInjectorWebhook</span></span><br><span class="line"><span class="attr">    chart:</span> <span class="string">sidecarInjectorWebhook</span></span><br><span class="line"><span class="attr">    heritage:</span> <span class="string">Tiller</span></span><br><span class="line"><span class="attr">    release:</span> <span class="string">istio</span></span><br><span class="line"><span class="attr">webhooks:</span></span><br><span class="line"><span class="attr">  - name:</span> <span class="string">sidecar-injector.istio.io</span></span><br><span class="line"><span class="attr">    clientConfig:</span></span><br><span class="line"><span class="attr">      service:</span></span><br><span class="line"><span class="attr">        name:</span> <span class="string">istio-sidecar-injector</span></span><br><span class="line"><span class="attr">        namespace:</span> <span class="string">istio-system</span></span><br><span class="line"><span class="attr">        path:</span> <span class="string">"/inject"</span></span><br><span class="line"><span class="attr">      caBundle:</span> <span class="string">""</span></span><br><span class="line"><span class="attr">    rules:</span></span><br><span class="line"><span class="attr">      - operations:</span> <span class="string">[</span> <span class="string">"CREATE"</span> <span class="string">]</span></span><br><span class="line"><span class="attr">        apiGroups:</span> <span class="string">[""]</span></span><br><span class="line"><span class="attr">        apiVersions:</span> <span class="string">["v1"]</span></span><br><span class="line"><span class="attr">        resources:</span> <span class="string">["pods"]</span></span><br><span class="line"><span class="attr">    failurePolicy:</span> <span class="string">Fail</span></span><br><span class="line"><span class="attr">    namespaceSelector:</span></span><br><span class="line"><span class="attr">      matchLabels:</span></span><br><span class="line"><span class="attr">        istio-injection:</span> <span class="string">enabled</span></span><br></pre></td></tr></table></figure>
+
+<p>创建一个 service 作为 webhook 服务器的前端，这里就是istio-sidecar-injector service。这个MutatingWebhookConfiguration很清晰，就是匹配带有istio-injection标签的namespace中的 CREATE POD 请求，匹配到之后按照clientConfig中制定的方向发送请求给istio-sidecar-injector service。<br>istio-sidecar-injector指定的是一个deployment，内容如下：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Source: istio/charts/sidecarInjectorWebhook/templates/deployment.yaml</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">istio-sidecar-injector</span></span><br><span class="line"><span class="attr">  namespace:</span> <span class="string">istio-system</span></span><br><span class="line"><span class="attr">  labels:</span></span><br><span class="line"><span class="attr">    app:</span> <span class="string">sidecarInjectorWebhook</span></span><br><span class="line"><span class="attr">    chart:</span> <span class="string">sidecarInjectorWebhook</span></span><br><span class="line"><span class="attr">    heritage:</span> <span class="string">Tiller</span></span><br><span class="line"><span class="attr">    release:</span> <span class="string">istio</span></span><br><span class="line"><span class="attr">    istio:</span> <span class="string">sidecar-injector</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">  replicas:</span> <span class="number">1</span></span><br><span class="line"><span class="attr">  selector:</span></span><br><span class="line"><span class="attr">    matchLabels:</span></span><br><span class="line"><span class="attr">      istio:</span> <span class="string">sidecar-injector</span></span><br><span class="line"><span class="attr">  strategy:</span></span><br><span class="line"><span class="attr">    rollingUpdate:</span></span><br><span class="line"><span class="attr">      maxSurge:</span> <span class="number">100</span><span class="string">%</span></span><br><span class="line"><span class="attr">      maxUnavailable:</span> <span class="number">25</span><span class="string">%</span></span><br><span class="line"><span class="attr">  template:</span></span><br><span class="line"><span class="attr">    metadata:</span></span><br><span class="line"><span class="attr">      labels:</span></span><br><span class="line"><span class="attr">        app:</span> <span class="string">sidecarInjectorWebhook</span></span><br><span class="line"><span class="attr">        chart:</span> <span class="string">sidecarInjectorWebhook</span></span><br><span class="line"><span class="attr">        heritage:</span> <span class="string">Tiller</span></span><br><span class="line"><span class="attr">        release:</span> <span class="string">istio</span></span><br><span class="line"><span class="attr">        istio:</span> <span class="string">sidecar-injector</span></span><br><span class="line"><span class="attr">      annotations:</span></span><br><span class="line">        <span class="string">sidecar.istio.io/inject:</span> <span class="string">"false"</span></span><br><span class="line"><span class="attr">    spec:</span></span><br><span class="line"><span class="attr">      serviceAccountName:</span> <span class="string">istio-sidecar-injector-service-account</span></span><br><span class="line"><span class="attr">      containers:</span></span><br><span class="line"><span class="attr">        - name:</span> <span class="string">sidecar-injector-webhook</span></span><br><span class="line"><span class="attr">          image:</span> <span class="string">"docker.io/istio/sidecar_injector:1.5.1"</span></span><br><span class="line"><span class="attr">          imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line"><span class="attr">          args:</span></span><br><span class="line"><span class="bullet">            -</span> <span class="bullet">--caCertFile=/etc/istio/certs/root-cert.pem</span></span><br><span class="line"><span class="bullet">            -</span> <span class="bullet">--tlsCertFile=/etc/istio/certs/cert-chain.pem</span></span><br><span class="line"><span class="bullet">            -</span> <span class="bullet">--tlsKeyFile=/etc/istio/certs/key.pem</span></span><br><span class="line"><span class="bullet">            -</span> <span class="bullet">--injectConfig=/etc/istio/inject/config</span></span><br><span class="line"><span class="bullet">            -</span> <span class="bullet">--meshConfig=/etc/istio/config/mesh</span></span><br><span class="line"><span class="bullet">            -</span> <span class="bullet">--healthCheckInterval=2s</span></span><br><span class="line"><span class="bullet">            -</span> <span class="bullet">--healthCheckFile=/tmp/health</span></span><br><span class="line"><span class="bullet">            -</span> <span class="bullet">--reconcileWebhookConfig=true</span></span><br><span class="line"><span class="attr">          volumeMounts:</span></span><br><span class="line"><span class="attr">          - name:</span> <span class="string">config-volume</span></span><br><span class="line"><span class="attr">            mountPath:</span> <span class="string">/etc/istio/config</span></span><br><span class="line"><span class="attr">            readOnly:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">          - name:</span> <span class="string">certs</span></span><br><span class="line"><span class="attr">            mountPath:</span> <span class="string">/etc/istio/certs</span></span><br><span class="line"><span class="attr">            readOnly:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">          - name:</span> <span class="string">inject-config</span></span><br><span class="line"><span class="attr">            mountPath:</span> <span class="string">/etc/istio/inject</span></span><br><span class="line"><span class="attr">            readOnly:</span> <span class="literal">true</span></span><br><span class="line"><span class="attr">          livenessProbe:</span></span><br><span class="line"><span class="attr">            exec:</span></span><br><span class="line"><span class="attr">              command:</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">/usr/local/bin/sidecar-injector</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">probe</span></span><br><span class="line"><span class="bullet">                -</span> <span class="bullet">--probe-path=/tmp/health</span></span><br><span class="line"><span class="bullet">                -</span> <span class="bullet">--interval=4s</span></span><br><span class="line"><span class="attr">            initialDelaySeconds:</span> <span class="number">4</span></span><br><span class="line"><span class="attr">            periodSeconds:</span> <span class="number">4</span></span><br><span class="line"><span class="attr">          readinessProbe:</span></span><br><span class="line"><span class="attr">            exec:</span></span><br><span class="line"><span class="attr">              command:</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">/usr/local/bin/sidecar-injector</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">probe</span></span><br><span class="line"><span class="bullet">                -</span> <span class="bullet">--probe-path=/tmp/health</span></span><br><span class="line"><span class="bullet">                -</span> <span class="bullet">--interval=4s</span></span><br><span class="line"><span class="attr">            initialDelaySeconds:</span> <span class="number">4</span></span><br><span class="line"><span class="attr">            periodSeconds:</span> <span class="number">4</span></span><br><span class="line"><span class="attr">          resources:</span></span><br><span class="line"><span class="attr">            requests:</span></span><br><span class="line"><span class="attr">              cpu:</span> <span class="number">10</span><span class="string">m</span></span><br><span class="line">            </span><br><span class="line"><span class="attr">      volumes:</span></span><br><span class="line"><span class="attr">      - name:</span> <span class="string">config-volume</span></span><br><span class="line"><span class="attr">        configMap:</span></span><br><span class="line"><span class="attr">          name:</span> <span class="string">istio</span></span><br><span class="line"><span class="attr">      - name:</span> <span class="string">certs</span></span><br><span class="line"><span class="attr">        secret:</span></span><br><span class="line"><span class="attr">          secretName:</span> <span class="string">istio.istio-sidecar-injector-service-account</span></span><br><span class="line"><span class="attr">      - name:</span> <span class="string">inject-config</span></span><br><span class="line"><span class="attr">        configMap:</span></span><br><span class="line"><span class="attr">          name:</span> <span class="string">istio-sidecar-injector</span></span><br><span class="line"><span class="attr">          items:</span></span><br><span class="line"><span class="attr">          - key:</span> <span class="string">config</span></span><br><span class="line"><span class="attr">            path:</span> <span class="string">config</span></span><br><span class="line"><span class="attr">          - key:</span> <span class="string">values</span></span><br><span class="line"><span class="attr">            path:</span> <span class="string">values</span></span><br><span class="line"><span class="attr">      affinity:</span>      </span><br><span class="line"><span class="attr">        nodeAffinity:</span></span><br><span class="line"><span class="attr">          requiredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line"><span class="attr">            nodeSelectorTerms:</span></span><br><span class="line"><span class="attr">            - matchExpressions:</span></span><br><span class="line"><span class="attr">              - key:</span> <span class="string">beta.kubernetes.io/arch</span></span><br><span class="line"><span class="attr">                operator:</span> <span class="string">In</span></span><br><span class="line"><span class="attr">                values:</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">"amd64"</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">"ppc64le"</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">"s390x"</span></span><br><span class="line"><span class="attr">          preferredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line"><span class="attr">          - weight:</span> <span class="number">2</span></span><br><span class="line"><span class="attr">            preference:</span></span><br><span class="line"><span class="attr">              matchExpressions:</span></span><br><span class="line"><span class="attr">              - key:</span> <span class="string">beta.kubernetes.io/arch</span></span><br><span class="line"><span class="attr">                operator:</span> <span class="string">In</span></span><br><span class="line"><span class="attr">                values:</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">"amd64"</span></span><br><span class="line"><span class="attr">          - weight:</span> <span class="number">2</span></span><br><span class="line"><span class="attr">            preference:</span></span><br><span class="line"><span class="attr">              matchExpressions:</span></span><br><span class="line"><span class="attr">              - key:</span> <span class="string">beta.kubernetes.io/arch</span></span><br><span class="line"><span class="attr">                operator:</span> <span class="string">In</span></span><br><span class="line"><span class="attr">                values:</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">"ppc64le"</span></span><br><span class="line"><span class="attr">          - weight:</span> <span class="number">2</span></span><br><span class="line"><span class="attr">            preference:</span></span><br><span class="line"><span class="attr">              matchExpressions:</span></span><br><span class="line"><span class="attr">              - key:</span> <span class="string">beta.kubernetes.io/arch</span></span><br><span class="line"><span class="attr">                operator:</span> <span class="string">In</span></span><br><span class="line"><span class="attr">                values:</span></span><br><span class="line"><span class="bullet">                -</span> <span class="string">"s390x"</span></span><br></pre></td></tr></table></figure>
+
+<p>这个Pod主要做的事我们通过现象来分析。</p>
+<h1 id="Pod中的三个容器"><a href="#Pod中的三个容器" class="headerlink" title="Pod中的三个容器"></a>Pod中的三个容器</h1><p>我们通过istio官方的demo我们可以发现，开启了自动注入后创建的review Pod中有三个容器，分别是：</p>
+<ul>
+<li>k8s_reviews_revierws-v3</li>
+<li>k8s_istio_proxy_reviews-v3</li>
+<li>k8s_POD_reviews<br>通过分析，第一个就是应用本身，第三个是kubernetes的pause容器，第二个容器就是istio系统中的Sidecar，并且进入容器我们也能看到里边运行的就是Envoy。这个容器是和Pod一一对应的，<strong>所以Sidecar是部署在Pod这个层级的</strong>，这一点很重要。<h2 id="Sidecar是如何劫持流量的呢"><a href="#Sidecar是如何劫持流量的呢" class="headerlink" title="Sidecar是如何劫持流量的呢"></a>Sidecar是如何劫持流量的呢</h2>我们发现了istio会给我们的每个Pod创建一个Sidecar容器，那么他是如何劫持流量的呢？<br>我们进入到这个容器后，执行ifconfig会惊奇发现，应用容器使用的IP地址与istio-proxy竟然是一样的。这说明应用容器与istio-proxy两个容器共享了网络。也就是说，istio在pod启动的时候使用自己的特殊pause容器istio-proxy替换掉了Kubernetes官方的pause，使得应用与istio-proxy处于同一个网络栈下。那最后的问题就是istio如何将应用的进出流量都重新定向到istio-proxy容器监听的端口。为了搞明白这个问题，我们可以手动注入Sidecar，来对比yaml文件的变化。主要变化是init container中多了一个proxy_init容器，查看它的Dockerfile文件可以发现，这个容器主要就是运行了一个脚本：</li>
+</ul>
+<figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">FROM ubuntu:xenial</span><br><span class="line">RUN apt-get update &amp;&amp; apt-get install -y \</span><br><span class="line">    iproute2 \</span><br><span class="line">    iptables \</span><br><span class="line"> &amp;&amp; rm -rf /var/lib/apt/lists/*</span><br><span class="line">ADD istio-iptables.sh /usr/local/bin/</span><br><span class="line">ENTRYPOINT [<span class="string">"/usr/local/bin/istio-iptables.sh"</span>]</span><br></pre></td></tr></table></figure>
+
+<p>该脚本源码就不具体分析了，不过也能猜出大概。istio正是通过iptables以及iproute2这个工具对Linux网络流量配置了过滤规则来实现Sidecar的流量劫持，其执行的脚本正是istio-iptables这个脚本文件。</p>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+	<div class="article-category tagcloud">
+		<i class="icon-book icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2020/04/05/Istio怎么劫持了流量/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-K8S集群日志收集方案" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2020/04/05/K8S集群日志收集方案/">K8S集群日志收集方案</a>
+    </h1>
+  
+
+        
+        <a href="/2020/04/05/K8S集群日志收集方案/" class="archive-article-date">
+  	<time datetime="2020-04-05T03:54:46.697Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="K8S集群日志收集方案"><a href="#K8S集群日志收集方案" class="headerlink" title="K8S集群日志收集方案"></a>K8S集群日志收集方案</h1><p>   在大型分布式部署的架构中，不同的服务模块部署在不同的服务器中，问题出现时，大部分情况需要根据问题暴露的关键信息定位具体的服务器和服务模块。常见的解决思路是建立一套集中式日志收集系统，将所有节点上的日志统一收集、管理、访问，将极大提高定位问题的效率。<br> 一个完整的集中式日志系统，需要包含以下几个主要特点：</p>
+<ul>
+<li>收集－能够采集多种来源的日志数据 </li>
+<li>传输－能够稳定的把日志数据传输到中央系统 </li>
+<li>存储－如何存储日志数据 </li>
+<li>分析－可以支持 UI 分析</li>
+<li>警告－能够提供错误报告，监控机制</li>
+</ul>
+<p>目前在K8S集群内部收集日志有以下几种方案<br>| 编号  | 方案 | 优点 | 缺点 |<br>|—-|—-|—-|—-|<br>| 1     |每个app的镜像中都集成日志收集组件  | 部署方便，kubernetes的yaml文件无须特别配置，可以为每个app自定义日志收集配置 | 强耦合，不方便应用和日志收集组件升级和维护且会导致镜像过大 |<br>| 2     | 单独创建一个日志收集组件跟app的容器一起运行在同一个pod中 |低耦合，扩展性强，方便维护和升级  | 需要对kubernetes的yaml文件进行单独配置，略显繁琐 |<br>| 3     | 将所有的Pod的日志都挂载到宿主机上，每台主机上单独起一个日志收集Pod | 完全解耦，性能最高，管理起来最方便 | 需要统一日志收集规则，目录和输出方式 |</p>
+<h2 id="方案一"><a href="#方案一" class="headerlink" title="方案一"></a>方案一</h2><p>基本不考虑</p>
+<h2 id="方案二"><a href="#方案二" class="headerlink" title="方案二"></a>方案二</h2><p><strong>方案二就是常见的ELK（Elasticsearch、Logstash、Kibana）+ Filebeat</strong>。引入了各类Lib Beats（Package Beat、Top Beat、File Beat等）运行在app应用的Pod中收集日志，转发给Logstash。此方案将手机端的Logstash替换为beats，更灵活，消耗资源更少，扩展性更强。同时可配置Logstash 和Elasticsearch 集群用于支持大集群系统的运维日志数据监控和查询。</p>
+<h3 id="简单介绍下ELK"><a href="#简单介绍下ELK" class="headerlink" title="简单介绍下ELK"></a>简单介绍下ELK</h3><p>Elasticsearch + Logstash + Kibana（ELK）是一套开源的日志管理方案</p>
+<ul>
+<li><p>Logstash：负责日志的收集，处理和储存</p>
+</li>
+<li><p>Elasticsearch：负责日志检索和分析</p>
+</li>
+<li><p>Kibana：负责日志的可视化<br><img src="https://img-blog.csdnimg.cn/20200103150908465.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br><strong><em>Elasticsearch简介</em></strong><br>默认情况下，ES集群节点都是混合节点，即在elasticsearch.yml中默认node.master: true和node.data: true。当ES集群规模达到一定程度以后，就需要注意对集群节点进行角色划分。ES集群节点可以划分为三种：主节点、数据节点和客户端节点。</p>
+</li>
+<li><p><strong>master-主节点</strong>  维护元数据，管理集群节点状态；不负责数据写入和查询。elasticsearch.yml</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">node.master: true</span><br><span class="line">node.data: false</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>data-数据节点</strong>  负责数据的写入与查询，压力大。elasticsearch.yml</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">node.master: false</span><br><span class="line">node.data: true</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<ul>
+<li><p><strong>data-客户端节点</strong>  负责任务分发和结果汇聚，分担数据节点压力。elasticsearch.yml</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">node.master: false</span><br><span class="line">node.data: false</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>data-混合节点</strong>  综合上述三个节点的功能。elasticsearch.yml</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">node.master: true</span><br><span class="line">node.data: true</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p><strong>Filebeat工作原理</strong><br>Filebeat由两个主要组件组成：prospectors 和 harvesters。这两个组件协同工作将文件变动发送到指定的输出中。<br><img src="https://img-blog.csdnimg.cn/20200103154511413.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br><strong>Harvester（收割机）</strong>：负责读取单个文件内容。每个文件会启动一个Harvester，每个Harvester会逐行读取各个文件，并将文件内容发送到制定输出中。Harvester负责打开和关闭文件，意味在Harvester运行的时候，文件描述符处于打开状态，如果文件在收集中被重命名或者被删除，Filebeat会继续读取此文件。所以在Harvester关闭之前，磁盘不会被释放。默认情况filebeat会保持文件打开的状态，直到达到close_inactive（如果此选项开启，filebeat会在指定时间内将不再更新的文件句柄关闭，时间从harvester读取最后一行的时间开始计时。若文件句柄被关闭后，文件发生变化，则会启动一个新的harvester。关闭文件句柄的时间不取决于文件的修改时间，若此参数配置不当，则可能发生日志不实时的情况，由scan_frequency参数决定，默认10s。Harvester使用内部时间戳来记录文件最后被收集的时间。例如：设置5m，则在Harvester读取文件的最后一行之后，开始倒计时5分钟，若5分钟内文件无变化，则关闭文件句柄。默认5m）。</p>
+<p><strong>Prospector（勘测者）</strong>：负责管理Harvester并找到所有读取源。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">filebeat.prospectors:</span></span><br><span class="line"></span><br><span class="line"><span class="attr">- input_type:</span> <span class="string">log</span></span><br><span class="line"></span><br><span class="line"><span class="attr">  paths:</span></span><br><span class="line"></span><br><span class="line"><span class="bullet">    -</span> <span class="string">/apps/logs/*/info.log</span></span><br></pre></td></tr></table></figure>
+
+<p>Prospector会找到/apps/logs/*目录下的所有info.log文件，并为每个文件启动一个Harvester。Prospector会检查每个文件，看Harvester是否已经启动，是否需要启动，或者文件是否可以忽略。若Harvester关闭，只有在文件大小发生变化的时候Prospector才会执行检查。只能检测本地的文件。</p>
+<p><strong>Filebeat如何记录文件状态</strong>：</p>
+<p>将文件状态记录在文件中（默认在/var/lib/filebeat/registry）。此状态可以记住Harvester收集文件的偏移量。若连接不上输出设备，如ES等，filebeat会记录发送前的最后一行，并再可以连接的时候继续发送。Filebeat在运行的时候，Prospector状态会被记录在内存中。Filebeat重启的时候，利用registry记录的状态来进行重建，用来还原到重启之前的状态。每个Prospector会为每个找到的文件记录一个状态，对于每个文件，Filebeat存储唯一标识符以检测文件是否先前被收集。</p>
+<p><strong>Filebeat如何保证事件至少被输出一次</strong>：</p>
+<p>Filebeat之所以能保证事件至少被传递到配置的输出一次，没有数据丢失，是因为filebeat将每个事件的传递状态保存在文件中。在未得到输出方确认时，filebeat会尝试一直发送，直到得到回应。若filebeat在传输过程中被关闭，则不会再关闭之前确认所有时事件。任何在filebeat关闭之前为确认的时间，都会在filebeat重启之后重新发送。这可确保至少发送一次，但有可能会重复。可通过设置shutdown_timeout 参数来设置关闭之前的等待事件回应的时间（默认禁用）。</p>
+<p><strong>Logstash工作原理</strong>：<br>Logstash事件处理有三个阶段：inputs → filters → outputs。是一个接收，处理，转发日志的工具。支持系统日志，webserver日志，错误日志，应用日志，总之包括所有可以抛出来的日志类型。<br><img src="https://img-blog.csdnimg.cn/20200103154804689.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br><strong>Input：输入数据到logstash</strong>。</p>
+<p>一些常用的输入为：</p>
+<ul>
+<li><p>file：从文件系统的文件中读取，类似于tial -f命令</p>
+</li>
+<li><p>syslog：在514端口上监听系统日志消息，并根据RFC3164标准进行解析</p>
+</li>
+<li><p>redis：从redis service中读取</p>
+</li>
+<li><p>beats：从filebeat中读取</p>
+</li>
+<li><p>Filters：数据中间处理，对数据进行操作。</p>
+</li>
+</ul>
+<p>一些常用的过滤器为：</p>
+<ul>
+<li>grok：解析任意文本数据，Grok 是 Logstash 最重要的插件。它的主要作用就是将文本格式的字符串，转换成为具体的结构化的数据，配合正则表达式使用。内置120多个解析语法。</li>
+</ul>
+<p>官方提供的grok表达式：<a href="https://github.com/logstash-plugins/logstash-patterns-core/tree/master/patterns" target="_blank" rel="noopener">https://github.com/logstash-plugins/logstash-patterns-core/tree/master/patterns</a><br>grok在线调试：<a href="https://grokdebug.herokuapp.com/" target="_blank" rel="noopener">https://grokdebug.herokuapp.com/</a></p>
+<ul>
+<li><p>mutate：对字段进行转换。例如对字段进行删除、替换、修改、重命名等。</p>
+</li>
+<li><p>drop：丢弃一部分events不进行处理。</p>
+</li>
+<li><p>clone：拷贝 event，这个过程中也可以添加或移除字段。</p>
+</li>
+<li><p>geoip：添加地理信息(为前台kibana图形化展示使用)</p>
+</li>
+</ul>
+<p><strong>Outputs：outputs是logstash处理管道的最末端组件。</strong>一个event可以在处理过程中经过多重输出，但是一旦所有的outputs都执行结束，这个event也就完成生命周期。</p>
+<p>一些常见的outputs为：</p>
+<ul>
+<li><p>elasticsearch：可以高效的保存数据，并且能够方便和简单的进行查询。</p>
+</li>
+<li><p>file：将event数据保存到文件中。</p>
+</li>
+<li><p>graphite：将event数据发送到图形化组件中，一个很流行的开源存储图形化展示的组件。</p>
+</li>
+<li><p>Codecs：codecs 是基于数据流的过滤器，它可以作为input，output的一部分配置。Codecs可以帮助你轻松的分割发送过来已经被序列化的数据。</p>
+</li>
+</ul>
+<p>一些常见的codecs：</p>
+<ul>
+<li><p>json：使用json格式对数据进行编码/解码。</p>
+</li>
+<li><p>multiline：将汇多个事件中数据汇总为一个单一的行。比如：java异常信息和堆栈信息。</p>
+</li>
+</ul>
+<p><strong><em>为什么要在ELK基础上引入Lib Beats？</em></strong><br>在进行日志收集的过程中，我们首先想到的是使用Logstash，因为它是ELK stack中的重要成员，但是在测试过程中发现，Logstash是基于JDK的，在没有产生日志的情况单纯启动Logstash就大概要消耗500M内存，在每个Pod中都启动一个日志收集组件的情况下，使用logstash有点浪费系统资源，我们选择使用Filebeat替代，经测试单独启动Filebeat容器大约会消耗12M内存，比起logstash相当轻量级。<br><strong>Kibana简介</strong><br>Kibana通常与 Elasticsearch 一起部署，Kibana 是 Elasticsearch 的一个功能强大的数据可视化 Dashboard，Kibana 允许你通过 web 界面来浏览 Elasticsearch 日志数据。</p>
+<h2 id="方案三"><a href="#方案三" class="headerlink" title="方案三"></a>方案三</h2><p><strong>此方案就是K8S官方推荐的EFK（ELasticsearch、Fluentd、Kibana）方案</strong><br>此方案通过DaemonSet的方式在集群内部每个节点上运行一个Fluent Pod统一收集上层应用层的日志并反馈到Elasticsearch<br><img src="https://img-blog.csdnimg.cn/20200103155624399.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br><strong>Fluentd简介</strong><br>Fluentd是一个Ruby语言开发的开源数据收集器，通过它能对数据进行统一收集和消费，能够更好地使用和理解数据。Fluentd将数据结构化为JSON，从而能够统一处理日志数据，包括：收集、过滤、缓存和输出。Fluentd是一个基于插件体系的架构，包括输入插件、输出插件、过滤插件、解析插件、格式化插件、缓存插件和存储插件，通过插件可以扩展和更好的使用Fluentd。</p>
+<p>Fluentd 通过一组给定的数据源抓取日志数据，处理后（转换成结构化的数据格式）将它们转发给其他服务，比如 Elasticsearch、对象存储等等。Fluentd 支持超过300个日志存储和分析服务，所以在这方面是非常灵活的。主要运行步骤如下：</p>
+<ul>
+<li>首先 Fluentd 从多个日志源获取数据</li>
+<li>结构化并且标记这些数据</li>
+<li>然后根据匹配的标签将数据发送到多个目标服务去<br><img src="https://img-blog.csdnimg.cn/202001031600510.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+</ul>
+<p><strong>Fluentd配置</strong><br>一般来说我们是通过一个配置文件来告诉 Fluentd 如何采集、处理数据的，下面简单和大家介绍下 Fluentd 的配置方法。<br><strong>日志源配置</strong><br>比如我们这里为了收集 Kubernetes 节点上的所有容器日志，就需要做如下的日志源配置：</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">&lt;source&gt;</span><br><span class="line"></span><br><span class="line">@id fluentd-containers.log</span><br><span class="line"></span><br><span class="line">@type tail</span><br><span class="line"></span><br><span class="line">path /var/log/containers/*.log</span><br><span class="line"></span><br><span class="line">pos_file /var/log/fluentd-containers.log.pos</span><br><span class="line"></span><br><span class="line">time_format %Y-%m-%dT%<span class="symbol">H:</span>%<span class="symbol">M:</span>%S.%NZ</span><br><span class="line"></span><br><span class="line">tag raw.kubernetes.*</span><br><span class="line"></span><br><span class="line">format json</span><br><span class="line"></span><br><span class="line">read_from_head <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">&lt;<span class="regexp">/source&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>上面配置部分参数说明如下：</p>
+<ul>
+<li>id：表示引用该日志源的唯一标识符，该标识可用于进一步过滤和路由结构化日志数据</li>
+<li>type：Fluentd 内置的指令，tail表示 Fluentd 从上次读取的位置通过 tail 不断获取数据，另外一个是http表示通过一个 GET 请求来收集数据。</li>
+<li>path：tail类型下的特定参数，告诉 Fluentd 采集/var/log/containers目录下的所有日志，这是 docker 在<br>Kubernetes 节点上用来存储运行容器 stdout 输出日志数据的目录。</li>
+<li>pos_file：检查点，如果 Fluentd 程序重新启动了，它将使用此文件中的位置来恢复日志数据收集。</li>
+<li>tag：用来将日志源与目标或者过滤器匹配的自定义字符串，Fluentd 匹配源/目标标签来路由日志数据。<br>路由配置</li>
+</ul>
+<p>上面是日志源的配置，接下来看看如何将日志数据发送到 Elasticsearch：</p>
+<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">&lt;match **&gt;</span><br><span class="line"></span><br><span class="line">@id elasticsearch</span><br><span class="line"></span><br><span class="line">@type elasticsearch</span><br><span class="line"></span><br><span class="line">@log_level info</span><br><span class="line"></span><br><span class="line">include_tag_key <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">type_name fluentd</span><br><span class="line"></span><br><span class="line">host <span class="string">"<span class="subst">#&#123;ENV[<span class="string">'OUTPUT_HOST'</span>]&#125;</span>"</span></span><br><span class="line"></span><br><span class="line">port <span class="string">"<span class="subst">#&#123;ENV[<span class="string">'OUTPUT_PORT'</span>]&#125;</span>"</span></span><br><span class="line"></span><br><span class="line">logstash_format <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">&lt;buffer&gt;</span><br><span class="line"></span><br><span class="line">@type file</span><br><span class="line"></span><br><span class="line">path /var/log/fluentd-buffers/kubernetes.system.buffer</span><br><span class="line"></span><br><span class="line">flush_mode interval</span><br><span class="line"></span><br><span class="line">retry_type exponential_backoff</span><br><span class="line"></span><br><span class="line">flush_thread_count <span class="number">2</span></span><br><span class="line"></span><br><span class="line">flush_interval <span class="number">5</span>s</span><br><span class="line"></span><br><span class="line">retry_forever</span><br><span class="line"></span><br><span class="line">retry_max_interval <span class="number">30</span></span><br><span class="line"></span><br><span class="line">chunk_limit_size <span class="string">"<span class="subst">#&#123;ENV[<span class="string">'OUTPUT_BUFFER_CHUNK_LIMIT'</span>]&#125;</span>"</span></span><br><span class="line"></span><br><span class="line">queue_limit_length <span class="string">"<span class="subst">#&#123;ENV[<span class="string">'OUTPUT_BUFFER_QUEUE_LIMIT'</span>]&#125;</span>"</span></span><br><span class="line"></span><br><span class="line">overflow_action block</span><br><span class="line"></span><br><span class="line">&lt;<span class="regexp">/buffer&gt;</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>match：标识一个目标标签，后面是一个匹配日志源的正则表达式，我们这里想要捕获所有的日志并将它们发送给 Elasticsearch，所以需要配置成**。</li>
+<li>id：目标的一个唯一标识符。</li>
+<li>type：支持的输出插件标识符，我们这里要输出到 Elasticsearch，所以配置成 elasticsearch，这是 Fluentd 的一个内置插件。</li>
+<li>log_level：指定要捕获的日志级别，我们这里配置成info，表示任何该级别或者该级别以上（INFO、WARNING、ERROR）的日志都将被路由到 Elsasticsearch。</li>
+<li>host/port：定义 Elasticsearch 的地址，也可以配置认证信息，我们的 Elasticsearch 不需要认证，所以这里直接指定 host 和 port 即可。</li>
+<li>logstash_format：Elasticsearch 服务对日志数据构建反向索引进行搜索，将 logstash_format 设置为true，Fluentd 将会以 logstash 格式来转发结构化的日志数据。</li>
+<li>Buffer： Fluentd 允许在目标不可用时进行缓存，比如，如果网络出现故障或者 Elasticsearch 不可用的时候。缓冲区配置也有助于降低磁盘的 IO。<h2 id="Docker-Image获取"><a href="#Docker-Image获取" class="headerlink" title="Docker Image获取"></a>Docker Image获取</h2>所需Docker image都可以从DockerHub或者<a href="https://console.cloud.google.com/projectselector2/gcr?supportedpurview=project" target="_blank" rel="noopener">Google镜像仓库获取</a>获取</li>
+</ul>
+<p><strong>目前Elasticsearch、Logstash、Kibana、Filebeat以及Fluentd都没有官方的ARM64镜像</strong><br><strong>但是，Elasticsearch、Logstash、Kibana有提供DockerFile，另外，<em>此三组件镜像版本必须一致</em></strong></p>
+<ul>
+<li><a href="https://github.com/elastic/dockerfiles/tree/v7.5.1/elasticsearch" target="_blank" rel="noopener">Elasticsearch官方DockerFile</a></li>
+<li><a href="https://github.com/elastic/dockerfiles/tree/v7.5.1/kibana" target="_blank" rel="noopener">Kibana官方DockerFile</a></li>
+<li><a href="https://github.com/elastic/dockerfiles/tree/v7.5.1/logstash" target="_blank" rel="noopener">Logstash官方DockerFile</a></li>
+</ul>
+<p><strong>Filebeat和Fluentd的非官方镜像</strong>：</p>
+<ul>
+<li>kasaoden/filebeat:7.2.0-arm64</li>
+<li>carlosedp/fluentd-elasticsearch:latest</li>
+</ul>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+	<div class="article-category tagcloud">
+		<i class="icon-book icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2020/04/05/K8S集群日志收集方案/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-自己动手搭建kubernetes dashboard界面" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2020/04/05/自己动手搭建kubernetes dashboard界面/">kubernetes dashboard</a>
+    </h1>
+  
+
+        
+        <a href="/2020/04/05/自己动手搭建kubernetes dashboard界面/" class="archive-article-date">
+  	<time datetime="2020-04-05T03:06:43.064Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="自己动手搭建kubernetes-dashboard界面"><a href="#自己动手搭建kubernetes-dashboard界面" class="headerlink" title="自己动手搭建kubernetes dashboard界面"></a>自己动手搭建kubernetes dashboard界面</h1><p>kubernetes官方提供了一套实用的dashboard界面。但是，入学者按照github上搭建安装时往往会遇到各种问题。顺手写个博客记录一下，也希望能帮到一些初学者。</p>
+<h2 id="搭建前准备"><a href="#搭建前准备" class="headerlink" title="搭建前准备"></a>搭建前准备</h2><p>kubernetes官方提供了一套实用的dashboard界面。但是，入学者按照github上搭建安装时往往会遇到各种问题。顺手写个博客记录一下，也希望能帮到一些初学者。目前，我搭建的kubernetes dashboard版本是1.10.1.搭建之前我们首先要有一套k8s集群环境。搭建k8s环境有空再写博客，另外还需要准备以下东西。</p>
+        
+          <a class="article-more-a" href="/2020/04/05/自己动手搭建kubernetes dashboard界面/#more">more >></a>
+        
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
+	<div class="article-category tagcloud">
+		<i class="icon-book icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2020/04/05/自己动手搭建kubernetes dashboard界面/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
     <article id="post-自己动手搭建Harbor镜像仓库" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
@@ -165,13 +659,13 @@
         
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2019/10/24/自己动手搭建Harbor镜像仓库/">自己动手搭建Harbor镜像仓库</a>
+      <a class="article-title" href="/2020/04/05/自己动手搭建Harbor镜像仓库/">自己动手搭建Harbor镜像仓库</a>
     </h1>
   
 
         
-        <a href="/2019/10/24/自己动手搭建Harbor镜像仓库/" class="archive-article-date">
-  	<time datetime="2019-10-24T10:25:57.297Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-24</time>
+        <a href="/2020/04/05/自己动手搭建Harbor镜像仓库/" class="archive-article-date">
+  	<time datetime="2020-04-05T03:06:43.064Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
 </a>
         
       </header>
@@ -238,164 +732,7 @@
 
       
         <p class="article-more-link">
-          <a class="article-more-a" href="/2019/10/24/自己动手搭建Harbor镜像仓库/">展开全文 >></a>
-        </p>
-      
-
-      
-      <div class="clearfix"></div>
-    </div>
-  </div>
-</article>
-
-<aside class="wrap-side-operation">
-    <div class="mod-side-operation">
-        
-        <div class="jump-container" id="js-jump-container" style="display:none;">
-            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
-                <i class="icon-font icon-back"></i>
-            </a>
-            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
-                <i class="icon-font icon-plane jump-plane"></i>
-            </div>
-        </div>
-        
-        
-    </div>
-</aside>
-
-
-
-
-  
-    <article id="post-山不在高" class="article article-type-post  article-index" itemscope itemprop="blogPost">
-  <div class="article-inner">
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2019/10/11/山不在高/">读书人要有读书人的样子</a>
-    </h1>
-  
-
-        
-        <a href="/2019/10/11/山不在高/" class="archive-article-date">
-  	<time datetime="2019-10-11T07:19:49.453Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
-</a>
-        
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h2 id="励学篇【作者】宋真宗-【朝代】宋"><a href="#励学篇【作者】宋真宗-【朝代】宋" class="headerlink" title="励学篇【作者】宋真宗 【朝代】宋"></a>励学篇【作者】宋真宗 【朝代】宋</h2><p>富家不用买良田，书中自有千钟粟。<br>安居不用架高楼，书中自有黄金屋。<br>娶妻莫恨无良媒，书中自有颜如玉。<br>出门莫恨无人随，书中车马多如簇。<br>男儿欲遂平生志，五经勤向窗前读。</p>
-<h2 id="陋室铭【作者】刘禹锡-【朝代】唐"><a href="#陋室铭【作者】刘禹锡-【朝代】唐" class="headerlink" title="陋室铭【作者】刘禹锡 【朝代】唐"></a>陋室铭【作者】刘禹锡 【朝代】唐</h2><p>山不在高，有仙则名。水不在深，有龙则灵。斯是陋室，惟吾德馨。苔痕上阶绿，草色入帘青。谈笑有鸿儒，往来无白丁。可以调素琴，阅金经。无丝竹之乱耳，无案牍之劳形。南阳诸葛庐，西蜀子云亭。孔子云：何陋之有？</p>
-<p><img src="https://img-blog.csdnimg.cn/20191011153729603.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
-
-      
-
-      
-    </div>
-    <div class="article-info article-info-index">
-      
-      
-	<div class="article-tag tagcloud">
-		<i class="icon-price-tags icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">山不在高</a>
-        		</li>
-      		 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">随笔</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-      
-
-      
-        <p class="article-more-link">
-          <a class="article-more-a" href="/2019/10/11/山不在高/">展开全文 >></a>
-        </p>
-      
-
-      
-      <div class="clearfix"></div>
-    </div>
-  </div>
-</article>
-
-<aside class="wrap-side-operation">
-    <div class="mod-side-operation">
-        
-        <div class="jump-container" id="js-jump-container" style="display:none;">
-            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
-                <i class="icon-font icon-back"></i>
-            </a>
-            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
-                <i class="icon-font icon-plane jump-plane"></i>
-            </div>
-        </div>
-        
-        
-    </div>
-</aside>
-
-
-
-
-  
-    <article id="post-Ansible-playbook 关于ssh的配置和使用" class="article article-type-post  article-index" itemscope itemprop="blogPost">
-  <div class="article-inner">
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="article-title" href="/2019/10/11/Ansible-playbook 关于ssh的配置和使用/">ansible中配置ssh</a>
-    </h1>
-  
-
-        
-        <a href="/2019/10/11/Ansible-playbook 关于ssh的配置和使用/" class="archive-article-date">
-  	<time datetime="2019-10-11T05:28:55.578Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
-</a>
-        
-      </header>
-    
-    <div class="article-entry" itemprop="articleBody">
-      
-        <h2 id="使用ansible时关于ssh的配置和使用"><a href="#使用ansible时关于ssh的配置和使用" class="headerlink" title="使用ansible时关于ssh的配置和使用"></a>使用ansible时关于ssh的配置和使用</h2><p>   ansible是基于SSH开发的一款用于远程（批量）地管理服务器资源的工具，这就表示其无需安装客户端，在一台全新的服务器上线之后（只要其有sshd服务在运行）就可以直接加入被管理的集群了。</p>
-<p>  关于ansible的配置在/etc/ansible/ansible.cfg文件中，所以关于ansible运行时所使用的ssh配置也可以在此文件中配置。在目前的ansible中，运行ansible时会依次加载 环境变量ANSIBLE_CONFIG，当前目录的ansible.cfg，~/.ansible.cfg，/etc/ansible/ansible.cfg，针对同一个配置项以最先加载到的为准。所以，我们可以单独编写自己的ansible.cfg文件放在当前目录下。</p>
-        
-          <a class="article-more-a" href="/2019/10/11/Ansible-playbook 关于ssh的配置和使用/#more">more >></a>
-        
-      
-
-      
-    </div>
-    <div class="article-info article-info-index">
-      
-      
-      
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Ansible//" class="article-tag-list-link color3">Ansible</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-      
-        <p class="article-more-link">
-          <a class="article-more-a" href="/2019/10/11/Ansible-playbook 关于ssh的配置和使用/">展开全文 >></a>
+          <a class="article-more-a" href="/2020/04/05/自己动手搭建Harbor镜像仓库/">展开全文 >></a>
         </p>
       
 
@@ -432,13 +769,13 @@
         
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2019/10/11/k8s集群中部署Calico踩坑笔记/">k8s集群部署Calico踩坑</a>
+      <a class="article-title" href="/2020/04/05/k8s集群中部署Calico踩坑笔记/">k8s集群部署Calico踩坑</a>
     </h1>
   
 
         
-        <a href="/2019/10/11/k8s集群中部署Calico踩坑笔记/" class="archive-article-date">
-  	<time datetime="2019-10-11T05:25:04.544Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
+        <a href="/2020/04/05/k8s集群中部署Calico踩坑笔记/" class="archive-article-date">
+  	<time datetime="2020-04-05T03:06:43.063Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
 </a>
         
       </header>
@@ -451,7 +788,7 @@
 <li>kubec-proxy 组件不能采用 –masquerade-all 启动，因为会与 Calico policy 冲突</li>
 <li>启用 RBAC 后需要设置对应的 RoleBinding，参考 官方文档 RBAC 部分
         
-          <a class="article-more-a" href="/2019/10/11/k8s集群中部署Calico踩坑笔记/#more">more >></a>
+          <a class="article-more-a" href="/2020/04/05/k8s集群中部署Calico踩坑笔记/#more">more >></a>
         
       
 
@@ -475,7 +812,87 @@
 
       
         <p class="article-more-link">
-          <a class="article-more-a" href="/2019/10/11/k8s集群中部署Calico踩坑笔记/">展开全文 >></a>
+          <a class="article-more-a" href="/2020/04/05/k8s集群中部署Calico踩坑笔记/">展开全文 >></a>
+        </p>
+      
+
+      
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</article>
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
+        </div>
+        
+        
+    </div>
+</aside>
+
+
+
+
+  
+    <article id="post-山不在高" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="article-title" href="/2020/04/05/山不在高/">读书人要有读书人的样子</a>
+    </h1>
+  
+
+        
+        <a href="/2020/04/05/山不在高/" class="archive-article-date">
+  	<time datetime="2020-04-05T03:06:43.063Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
+</a>
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h2 id="励学篇【作者】宋真宗-【朝代】宋"><a href="#励学篇【作者】宋真宗-【朝代】宋" class="headerlink" title="励学篇【作者】宋真宗 【朝代】宋"></a>励学篇【作者】宋真宗 【朝代】宋</h2><p>富家不用买良田，书中自有千钟粟。<br>安居不用架高楼，书中自有黄金屋。<br>娶妻莫恨无良媒，书中自有颜如玉。<br>出门莫恨无人随，书中车马多如簇。<br>男儿欲遂平生志，五经勤向窗前读。</p>
+<h2 id="陋室铭【作者】刘禹锡-【朝代】唐"><a href="#陋室铭【作者】刘禹锡-【朝代】唐" class="headerlink" title="陋室铭【作者】刘禹锡 【朝代】唐"></a>陋室铭【作者】刘禹锡 【朝代】唐</h2><p>山不在高，有仙则名。水不在深，有龙则灵。斯是陋室，惟吾德馨。苔痕上阶绿，草色入帘青。谈笑有鸿儒，往来无白丁。可以调素琴，阅金经。无丝竹之乱耳，无案牍之劳形。南阳诸葛庐，西蜀子云亭。孔子云：何陋之有？</p>
+<p><img src="https://img-blog.csdnimg.cn/20191011153729603.jpg?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L0N1aV9DdWlfNjY2,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+
+      
+
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+	<div class="article-tag tagcloud">
+		<i class="icon-price-tags icon"></i>
+		<ul class="article-tag-list">
+			 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">山不在高</a>
+        		</li>
+      		 
+        		<li class="article-tag-list-item">
+        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">随笔</a>
+        		</li>
+      		
+		</ul>
+	</div>
+
+      
+
+      
+        <p class="article-more-link">
+          <a class="article-more-a" href="/2020/04/05/山不在高/">展开全文 >></a>
         </p>
       
 
@@ -512,13 +929,13 @@
         
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2019/10/11/Golang 1.10 获取Windows上的硬件数据信息/">Golang获取windows硬件数据</a>
+      <a class="article-title" href="/2020/04/05/Golang 1.10 获取Windows上的硬件数据信息/">Golang获取windows硬件数据</a>
     </h1>
   
 
         
-        <a href="/2019/10/11/Golang 1.10 获取Windows上的硬件数据信息/" class="archive-article-date">
-  	<time datetime="2019-10-11T05:23:10.673Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
+        <a href="/2020/04/05/Golang 1.10 获取Windows上的硬件数据信息/" class="archive-article-date">
+  	<time datetime="2020-04-05T03:06:43.062Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
 </a>
         
       </header>
@@ -527,7 +944,7 @@
       
         <h1 id="Golang1-10获取windows硬件数据"><a href="#Golang1-10获取windows硬件数据" class="headerlink" title="Golang1.10获取windows硬件数据"></a>Golang1.10获取windows硬件数据</h1><p>   <strong>嗯，工作原因需要使用go语言抓取windows下的硬件信息，包括CPU，GPU，内存，网卡信息，物理硬盘，系统信息等。做Golang语言开发的应该都知道，一手资料都在国外，国内的博客都是千篇一律互相Copy。所以，自己写个博客给大家分享一下，也记录一下。这里，我的golang版本是最新的1.10.1。不多说了，直接上干货</strong>。</p>
         
-          <a class="article-more-a" href="/2019/10/11/Golang 1.10 获取Windows上的硬件数据信息/#more">more >></a>
+          <a class="article-more-a" href="/2020/04/05/Golang 1.10 获取Windows上的硬件数据信息/#more">more >></a>
         
       
 
@@ -551,7 +968,7 @@
 
       
         <p class="article-more-link">
-          <a class="article-more-a" href="/2019/10/11/Golang 1.10 获取Windows上的硬件数据信息/">展开全文 >></a>
+          <a class="article-more-a" href="/2020/04/05/Golang 1.10 获取Windows上的硬件数据信息/">展开全文 >></a>
         </p>
       
 
@@ -581,30 +998,30 @@
 
 
   
-    <article id="post-自己动手搭建kubernetes dashboard界面" class="article article-type-post  article-index" itemscope itemprop="blogPost">
+    <article id="post-Ansible-playbook 关于ssh的配置和使用" class="article article-type-post  article-index" itemscope itemprop="blogPost">
   <div class="article-inner">
     
       <header class="article-header">
         
   
     <h1 itemprop="name">
-      <a class="article-title" href="/2019/10/11/自己动手搭建kubernetes dashboard界面/">kubernetes dashboard</a>
+      <a class="article-title" href="/2020/04/05/Ansible-playbook 关于ssh的配置和使用/">ansible中配置ssh</a>
     </h1>
   
 
         
-        <a href="/2019/10/11/自己动手搭建kubernetes dashboard界面/" class="archive-article-date">
-  	<time datetime="2019-10-11T02:28:24.693Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2019-10-11</time>
+        <a href="/2020/04/05/Ansible-playbook 关于ssh的配置和使用/" class="archive-article-date">
+  	<time datetime="2020-04-05T03:06:43.062Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
 </a>
         
       </header>
     
     <div class="article-entry" itemprop="articleBody">
       
-        <h1 id="自己动手搭建kubernetes-dashboard界面"><a href="#自己动手搭建kubernetes-dashboard界面" class="headerlink" title="自己动手搭建kubernetes dashboard界面"></a>自己动手搭建kubernetes dashboard界面</h1><p>kubernetes官方提供了一套实用的dashboard界面。但是，入学者按照github上搭建安装时往往会遇到各种问题。顺手写个博客记录一下，也希望能帮到一些初学者。</p>
-<h2 id="搭建前准备"><a href="#搭建前准备" class="headerlink" title="搭建前准备"></a>搭建前准备</h2><p>kubernetes官方提供了一套实用的dashboard界面。但是，入学者按照github上搭建安装时往往会遇到各种问题。顺手写个博客记录一下，也希望能帮到一些初学者。目前，我搭建的kubernetes dashboard版本是1.10.1.搭建之前我们首先要有一套k8s集群环境。搭建k8s环境有空再写博客，另外还需要准备以下东西。</p>
+        <h2 id="使用ansible时关于ssh的配置和使用"><a href="#使用ansible时关于ssh的配置和使用" class="headerlink" title="使用ansible时关于ssh的配置和使用"></a>使用ansible时关于ssh的配置和使用</h2><p>   ansible是基于SSH开发的一款用于远程（批量）地管理服务器资源的工具，这就表示其无需安装客户端，在一台全新的服务器上线之后（只要其有sshd服务在运行）就可以直接加入被管理的集群了。</p>
+<p>  关于ansible的配置在/etc/ansible/ansible.cfg文件中，所以关于ansible运行时所使用的ssh配置也可以在此文件中配置。在目前的ansible中，运行ansible时会依次加载 环境变量ANSIBLE_CONFIG，当前目录的ansible.cfg，~/.ansible.cfg，/etc/ansible/ansible.cfg，针对同一个配置项以最先加载到的为准。所以，我们可以单独编写自己的ansible.cfg文件放在当前目录下。</p>
         
-          <a class="article-more-a" href="/2019/10/11/自己动手搭建kubernetes dashboard界面/#more">more >></a>
+          <a class="article-more-a" href="/2020/04/05/Ansible-playbook 关于ssh的配置和使用/#more">more >></a>
         
       
 
@@ -619,7 +1036,7 @@
 		<ul class="article-tag-list">
 			 
         		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
+        			<a href="/categories/Ansible//" class="article-tag-list-link color3">Ansible</a>
         		</li>
       		
 		</ul>
@@ -628,7 +1045,7 @@
 
       
         <p class="article-more-link">
-          <a class="article-more-a" href="/2019/10/11/自己动手搭建kubernetes dashboard界面/">展开全文 >></a>
+          <a class="article-more-a" href="/2020/04/05/Ansible-playbook 关于ssh的配置和使用/">展开全文 >></a>
         </p>
       
 
@@ -668,7 +1085,7 @@
   <div class="outer">
     <div id="footer-info">
     	<div class="footer-left">
-    		&copy; 2019 AL-Cui
+    		&copy; 2020 AL-Cui
     	</div>
       	<div class="footer-right">
       		<a href="http://hexo.io/" target="_blank">Hexo</a>  Theme <a href="https://github.com/litten/hexo-theme-yilia" target="_blank">Yilia</a> by Litten
