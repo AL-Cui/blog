@@ -6,15 +6,19 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <link rel="dns-prefetch" href="http://yoursite.com">
-  <title>Archives: 2020/4 | AL-Cui的技术水果摊</title>
+  <title>ConfigMap热更新 | AL-Cui的技术水果摊</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta property="og:type" content="website">
-<meta property="og:title" content="AL-Cui的技术水果摊">
-<meta property="og:url" content="http://yoursite.com/archives/2020/04/index.html">
+  <meta name="description" content="有一天，同事遇到了客户的奇怪的需求：主动触发pod的重建，但是又不能影响到pod中的业务。当时我就想到，给相关deployment配置滚动更新呀。但是，紧接着问题就来了，怎么触发这个滚动更新呢？接下来，就想到了ConfigMap的热更新可以触发Deploy的滚动升级呀，这样不就能将pod重建了吗？但是，同事测试后却发现ConfigMap更新后，但是缺没看到Deployment的滚动升级呢？这是为何">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ConfigMap热更新">
+<meta property="og:url" content="http://yoursite.com/2020/04/19/ConfigMap热更新/index.html">
 <meta property="og:site_name" content="AL-Cui的技术水果摊">
+<meta property="og:description" content="有一天，同事遇到了客户的奇怪的需求：主动触发pod的重建，但是又不能影响到pod中的业务。当时我就想到，给相关deployment配置滚动更新呀。但是，紧接着问题就来了，怎么触发这个滚动更新呢？接下来，就想到了ConfigMap的热更新可以触发Deploy的滚动升级呀，这样不就能将pod重建了吗？但是，同事测试后却发现ConfigMap更新后，但是缺没看到Deployment的滚动升级呢？这是为何">
 <meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2020-04-19T12:37:41.819Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="AL-Cui的技术水果摊">
+<meta name="twitter:title" content="ConfigMap热更新">
+<meta name="twitter:description" content="有一天，同事遇到了客户的奇怪的需求：主动触发pod的重建，但是又不能影响到pod中的业务。当时我就想到，给相关deployment配置滚动更新呀。但是，紧接着问题就来了，怎么触发这个滚动更新呢？接下来，就想到了ConfigMap的热更新可以触发Deploy的滚动升级呀，这样不就能将pod重建了吗？但是，同事测试后却发现ConfigMap更新后，但是缺没看到Deployment的滚动升级呢？这是为何">
   
     <link rel="alternative" href="/atom.xml" title="AL-Cui的技术水果摊" type="application/atom+xml">
   
@@ -156,37 +160,89 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            
+            <article id="post-ConfigMap热更新" class="article article-type-post " itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
   
+    <h1 class="article-title" itemprop="name">
+      ConfigMap热更新
+    </h1>
   
-    
-    
-      
-      
-      <section class="archives-wrap">
-        <div class="archive-year-wrap">
-          <a href="/archives/2020" class="archive-year">2020</a>
-        </div>
-        <div class="archives">
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/19/ConfigMap热更新/" class="archive-article-date">
+
+        
+        <a href="/2020/04/19/ConfigMap热更新/" class="archive-article-date">
   	<time datetime="2020-04-19T12:37:09.373Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-19</time>
 </a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/19/ConfigMap热更新/">ConfigMap热更新</a>
-    </h1>
-  
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p>有一天，同事遇到了客户的奇怪的需求：主动触发pod的重建，但是又不能影响到pod中的业务。当时我就想到，给相关deployment配置滚动更新呀。但是，紧接着问题就来了，怎么触发这个滚动更新呢？接下来，就想到了ConfigMap的热更新可以触发Deploy的滚动升级呀，这样不就能将pod重建了吗？但是，同事测试后却发现ConfigMap更新后，但是缺没看到Deployment的滚动升级呢？这是为何呢？这就涉及到ConfigMap被挂载进pod的方式了。</p>
+<h2 id="以环境变量的方式挂载ConfigMap"><a href="#以环境变量的方式挂载ConfigMap" class="headerlink" title="以环境变量的方式挂载ConfigMap"></a>以环境变量的方式挂载ConfigMap</h2><p>当我们编写Deployment以环境变量的方式挂载ConfigMap的时候，有时候可能看到ValueFrom，有时候可能会使用EnvFrom。这是为啥呢？<br>主要是k8s中一开始都是使用的ValueFrom，一次只能配置一个变量，我们可能要写多个如下结构</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">configMapKeyRef:</span></span><br><span class="line">              <span class="comment"># The ConfigMap containing the value you want to assign to SPECIAL_LEVEL_KEY</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">special-config</span></span><br><span class="line">              <span class="comment"># Specify the key associated with the value</span></span><br><span class="line"><span class="attr">  key:</span> <span class="string">special.how</span></span><br></pre></td></tr></table></figure>
 
-        <div class="article-info info-on-right">
-          
-          
+<p>但是，在kubernetes1.6开始，引入了一个新字段envFrom，实现了在pod环境中将ConfigMap（或者Secret资源对象）中定义的key=value自动生成为环境变量。如下：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ConfigMap</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">special-config</span></span><br><span class="line"><span class="attr">  namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">data:</span></span><br><span class="line"><span class="attr">  SPECIAL_LEVEL:</span> <span class="string">very</span></span><br><span class="line"><span class="attr">  SPECIAL_TYPE:</span> <span class="string">charm</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">dapi-test-pod</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">  containers:</span></span><br><span class="line"><span class="attr">    - name:</span> <span class="string">test-container</span></span><br><span class="line"><span class="attr">      image:</span> <span class="string">gcr.io/google_containers/busybox</span></span><br><span class="line"><span class="attr">      command:</span> <span class="string">[</span> <span class="string">"/bin/sh"</span><span class="string">,</span> <span class="string">"-c"</span><span class="string">,</span> <span class="string">"env"</span> <span class="string">]</span></span><br><span class="line"><span class="attr">      envFrom:</span></span><br><span class="line"><span class="attr">      - configMapRef:</span></span><br><span class="line"><span class="attr">          name:</span> <span class="string">special-config</span></span><br><span class="line"><span class="attr">  restartPolicy:</span> <span class="string">Never</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>测试后发现通过这种方式挂载Config Map，更新Config Map并不会触发Deployment更新。</strong></p>
+<h2 id="以Volume的方式挂载Config-Map"><a href="#以Volume的方式挂载Config-Map" class="headerlink" title="以Volume的方式挂载Config Map"></a>以Volume的方式挂载Config Map</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">ConfigMap</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">special-config</span></span><br><span class="line"><span class="attr">  namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">data:</span></span><br><span class="line">  <span class="string">special.level:</span> <span class="string">very</span></span><br><span class="line">  <span class="string">special.type:</span> <span class="string">charm</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">  name:</span> <span class="string">dapi-test-pod</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">  containers:</span></span><br><span class="line"><span class="attr">    - name:</span> <span class="string">test-container</span></span><br><span class="line"><span class="attr">      image:</span> <span class="string">gcr.io/google_containers/busybox</span></span><br><span class="line"><span class="attr">      command:</span> <span class="string">[</span> <span class="string">"/bin/sh"</span><span class="string">,</span> <span class="string">"-c"</span><span class="string">,</span> <span class="string">"ls /etc/config/"</span> <span class="string">]</span></span><br><span class="line"><span class="attr">      volumeMounts:</span></span><br><span class="line"><span class="attr">      - name:</span> <span class="string">config-volume</span></span><br><span class="line"><span class="attr">        mountPath:</span> <span class="string">/etc/config</span></span><br><span class="line"><span class="attr">  volumes:</span></span><br><span class="line"><span class="attr">    - name:</span> <span class="string">config-volume</span></span><br><span class="line"><span class="attr">      configMap:</span></span><br><span class="line">        <span class="comment"># Provide the name of the ConfigMap containing the files you want</span></span><br><span class="line">        <span class="comment"># to add to the container</span></span><br><span class="line"><span class="attr">        name:</span> <span class="string">special-config</span></span><br><span class="line"><span class="attr">  restartPolicy:</span> <span class="string">Never</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>测试后发现通过这种方式挂载Config Map，更新Config Map会触发Deployment更新。</strong></p>
+<p>另外， 如果使用ConfigMap的subPath挂载为Container的Volume，Kubernetes不会做自动热更新<br><a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#mounted-configmaps-are-updated-automatically" target="_blank" rel="noopener">详情点击</a></p>
+<p>那么问题来了，</p>
+<h2 id="为什么通过Volume挂载的configMap更新后能触发Deployment的更新呢？"><a href="#为什么通过Volume挂载的configMap更新后能触发Deployment的更新呢？" class="headerlink" title="为什么通过Volume挂载的configMap更新后能触发Deployment的更新呢？"></a>为什么通过Volume挂载的configMap更新后能触发Deployment的更新呢？</h2><p><strong>ENV 是在容器启动的时候注入的，启动之后 kubernetes 就不会再改变环境变量的值</strong>，且同一个 namespace 中的 pod 的环境变量是不断累加的。但是Volume不同，<strong>kubelet的源码里KubeletManager中是有Volume Manager</strong>的，这就说明Kubelet会监控管理每个Pod中的Volume资源，当发现配置的Volume更新后，就会重建Pod，以更新所用的Volume，但是会有一定延迟，大概10秒以内。<br>源码如下</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Kubelet is the main kubelet implementation.</span></span><br><span class="line"><span class="keyword">type</span> Kubelet <span class="keyword">struct</span> &#123;</span><br><span class="line">	kubeletConfiguration kubeletconfiginternal.KubeletConfiguration</span><br><span class="line"></span><br><span class="line">	<span class="comment">// hostname is the hostname the kubelet detected or was given via flag/config</span></span><br><span class="line">	hostname <span class="keyword">string</span></span><br><span class="line">	<span class="comment">// hostnameOverridden indicates the hostname was overridden via flag/config</span></span><br><span class="line">	hostnameOverridden <span class="keyword">bool</span></span><br><span class="line"></span><br><span class="line">	nodeName        types.NodeName</span><br><span class="line">	runtimeCache    kubecontainer.RuntimeCache</span><br><span class="line">	kubeClient      clientset.Interface</span><br><span class="line">	heartbeatClient clientset.Interface</span><br><span class="line">	iptClient       utilipt.Interface</span><br><span class="line">	rootDirectory   <span class="keyword">string</span></span><br><span class="line"></span><br><span class="line">	lastObservedNodeAddressesMux sync.RWMutex</span><br><span class="line">	lastObservedNodeAddresses    []v1.NodeAddress</span><br><span class="line"></span><br><span class="line">	<span class="comment">// onRepeatedHeartbeatFailure is called when a heartbeat operation fails more than once. optional.</span></span><br><span class="line">	onRepeatedHeartbeatFailure <span class="function"><span class="keyword">func</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">podWorkers</span> <span class="title">handle</span> <span class="title">syncing</span> <span class="title">Pods</span> <span class="title">in</span> <span class="title">response</span> <span class="title">to</span> <span class="title">events</span>.</span></span><br><span class="line"><span class="function">	<span class="title">podWorkers</span> <span class="title">PodWorkers</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">resyncInterval</span> <span class="title">is</span> <span class="title">the</span> <span class="title">interval</span> <span class="title">between</span> <span class="title">periodic</span> <span class="title">full</span> <span class="title">reconciliations</span> <span class="title">of</span></span></span><br><span class="line"><span class="function">	// <span class="title">pods</span> <span class="title">on</span> <span class="title">this</span> <span class="title">node</span>.</span></span><br><span class="line"><span class="function">	<span class="title">resyncInterval</span> <span class="title">time</span>.<span class="title">Duration</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">sourcesReady</span> <span class="title">records</span> <span class="title">the</span> <span class="title">sources</span> <span class="title">seen</span> <span class="title">by</span> <span class="title">the</span> <span class="title">kubelet</span>, <span class="title">it</span> <span class="title">is</span> <span class="title">thread</span>-<span class="title">safe</span>.</span></span><br><span class="line"><span class="function">	<span class="title">sourcesReady</span> <span class="title">config</span>.<span class="title">SourcesReady</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">podManager</span> <span class="title">is</span> <span class="title">a</span> <span class="title">facade</span> <span class="title">that</span> <span class="title">abstracts</span> <span class="title">away</span> <span class="title">the</span> <span class="title">various</span> <span class="title">sources</span> <span class="title">of</span> <span class="title">pods</span></span></span><br><span class="line"><span class="function">	// <span class="title">this</span> <span class="title">Kubelet</span> <span class="title">services</span>.</span></span><br><span class="line"><span class="function">	<span class="title">podManager</span> <span class="title">kubepod</span>.<span class="title">Manager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Needed</span> <span class="title">to</span> <span class="title">observe</span> <span class="title">and</span> <span class="title">respond</span> <span class="title">to</span> <span class="title">situations</span> <span class="title">that</span> <span class="title">could</span> <span class="title">impact</span> <span class="title">node</span> <span class="title">stability</span></span></span><br><span class="line"><span class="function">	<span class="title">evictionManager</span> <span class="title">eviction</span>.<span class="title">Manager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Optional</span>, <span class="title">defaults</span> <span class="title">to</span> /<span class="title">logs</span>/ <span class="title">from</span> /<span class="title">var</span>/<span class="title">log</span></span></span><br><span class="line"><span class="function">	<span class="title">logServer</span> <span class="title">http</span>.<span class="title">Handler</span></span></span><br><span class="line"><span class="function">	// <span class="title">Optional</span>, <span class="title">defaults</span> <span class="title">to</span> <span class="title">simple</span> <span class="title">Docker</span> <span class="title">implementation</span></span></span><br><span class="line"><span class="function">	<span class="title">runner</span> <span class="title">kubecontainer</span>.<span class="title">ContainerCommandRunner</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">cAdvisor</span> <span class="title">used</span> <span class="title">for</span> <span class="title">container</span> <span class="title">information</span>.</span></span><br><span class="line"><span class="function">	<span class="title">cadvisor</span> <span class="title">cadvisor</span>.<span class="title">Interface</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Set</span> <span class="title">to</span> <span class="title">true</span> <span class="title">to</span> <span class="title">have</span> <span class="title">the</span> <span class="title">node</span> <span class="title">register</span> <span class="title">itself</span> <span class="title">with</span> <span class="title">the</span> <span class="title">apiserver</span>.</span></span><br><span class="line"><span class="function">	<span class="title">registerNode</span> <span class="title">bool</span></span></span><br><span class="line"><span class="function">	// <span class="title">List</span> <span class="title">of</span> <span class="title">taints</span> <span class="title">to</span> <span class="title">add</span> <span class="title">to</span> <span class="title">a</span> <span class="title">node</span> <span class="title">object</span> <span class="title">when</span> <span class="title">the</span> <span class="title">kubelet</span> <span class="title">registers</span> <span class="title">itself</span>.</span></span><br><span class="line"><span class="function">	<span class="title">registerWithTaints</span> []<span class="title">api</span>.<span class="title">Taint</span></span></span><br><span class="line"><span class="function">	// <span class="title">Set</span> <span class="title">to</span> <span class="title">true</span> <span class="title">to</span> <span class="title">have</span> <span class="title">the</span> <span class="title">node</span> <span class="title">register</span> <span class="title">itself</span> <span class="title">as</span> <span class="title">schedulable</span>.</span></span><br><span class="line"><span class="function">	<span class="title">registerSchedulable</span> <span class="title">bool</span></span></span><br><span class="line"><span class="function">	// <span class="title">for</span> <span class="title">internal</span> <span class="title">book</span> <span class="title">keeping</span>; <span class="title">access</span> <span class="title">only</span> <span class="title">from</span> <span class="title">within</span> <span class="title">registerWithApiserver</span></span></span><br><span class="line"><span class="function">	<span class="title">registrationCompleted</span> <span class="title">bool</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">dnsConfigurer</span> <span class="title">is</span> <span class="title">used</span> <span class="title">for</span> <span class="title">setting</span> <span class="title">up</span> <span class="title">DNS</span> <span class="title">resolver</span> <span class="title">configuration</span> <span class="title">when</span> <span class="title">launching</span> <span class="title">pods</span>.</span></span><br><span class="line"><span class="function">	<span class="title">dnsConfigurer</span> *<span class="title">dns</span>.<span class="title">Configurer</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">masterServiceNamespace</span> <span class="title">is</span> <span class="title">the</span> <span class="title">namespace</span> <span class="title">that</span> <span class="title">the</span> <span class="title">master</span> <span class="title">service</span> <span class="title">is</span> <span class="title">exposed</span> <span class="title">in</span>.</span></span><br><span class="line"><span class="function">	<span class="title">masterServiceNamespace</span> <span class="title">string</span></span></span><br><span class="line"><span class="function">	// <span class="title">serviceLister</span> <span class="title">knows</span> <span class="title">how</span> <span class="title">to</span> <span class="title">list</span> <span class="title">services</span></span></span><br><span class="line"><span class="function">	<span class="title">serviceLister</span> <span class="title">serviceLister</span></span></span><br><span class="line"><span class="function">	// <span class="title">nodeLister</span> <span class="title">knows</span> <span class="title">how</span> <span class="title">to</span> <span class="title">list</span> <span class="title">nodes</span></span></span><br><span class="line"><span class="function">	<span class="title">nodeLister</span> <span class="title">corelisters</span>.<span class="title">NodeLister</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">a</span> <span class="title">list</span> <span class="title">of</span> <span class="title">node</span> <span class="title">labels</span> <span class="title">to</span> <span class="title">register</span></span></span><br><span class="line"><span class="function">	<span class="title">nodeLabels</span> <span class="title">map</span>[<span class="title">string</span>]<span class="title">string</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Last</span> <span class="title">timestamp</span> <span class="title">when</span> <span class="title">runtime</span> <span class="title">responded</span> <span class="title">on</span> <span class="title">ping</span>.</span></span><br><span class="line"><span class="function">	// <span class="title">Mutex</span> <span class="title">is</span> <span class="title">used</span> <span class="title">to</span> <span class="title">protect</span> <span class="title">this</span> <span class="title">value</span>.</span></span><br><span class="line"><span class="function">	<span class="title">runtimeState</span> *<span class="title">runtimeState</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Volume</span> <span class="title">plugins</span>.</span></span><br><span class="line"><span class="function">	<span class="title">volumePluginMgr</span> *<span class="title">volume</span>.<span class="title">VolumePluginMgr</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Handles</span> <span class="title">container</span> <span class="title">probing</span>.</span></span><br><span class="line"><span class="function">	<span class="title">probeManager</span> <span class="title">prober</span>.<span class="title">Manager</span></span></span><br><span class="line"><span class="function">	// <span class="title">Manages</span> <span class="title">container</span> <span class="title">health</span> <span class="title">check</span> <span class="title">results</span>.</span></span><br><span class="line"><span class="function">	<span class="title">livenessManager</span> <span class="title">proberesults</span>.<span class="title">Manager</span></span></span><br><span class="line"><span class="function">	<span class="title">startupManager</span>  <span class="title">proberesults</span>.<span class="title">Manager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">How</span> <span class="title">long</span> <span class="title">to</span> <span class="title">keep</span> <span class="title">idle</span> <span class="title">streaming</span> <span class="title">command</span> <span class="title">execution</span>/<span class="title">port</span> <span class="title">forwarding</span></span></span><br><span class="line"><span class="function">	// <span class="title">connections</span> <span class="title">open</span> <span class="title">before</span> <span class="title">terminating</span> <span class="title">them</span></span></span><br><span class="line"><span class="function">	<span class="title">streamingConnectionIdleTimeout</span> <span class="title">time</span>.<span class="title">Duration</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">The</span> <span class="title">EventRecorder</span> <span class="title">to</span> <span class="title">use</span></span></span><br><span class="line"><span class="function">	<span class="title">recorder</span> <span class="title">record</span>.<span class="title">EventRecorder</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Policy</span> <span class="title">for</span> <span class="title">handling</span> <span class="title">garbage</span> <span class="title">collection</span> <span class="title">of</span> <span class="title">dead</span> <span class="title">containers</span>.</span></span><br><span class="line"><span class="function">	<span class="title">containerGC</span> <span class="title">kubecontainer</span>.<span class="title">ContainerGC</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Manager</span> <span class="title">for</span> <span class="title">image</span> <span class="title">garbage</span> <span class="title">collection</span>.</span></span><br><span class="line"><span class="function">	<span class="title">imageManager</span> <span class="title">images</span>.<span class="title">ImageGCManager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Manager</span> <span class="title">for</span> <span class="title">container</span> <span class="title">logs</span>.</span></span><br><span class="line"><span class="function">	<span class="title">containerLogManager</span> <span class="title">logs</span>.<span class="title">ContainerLogManager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Secret</span> <span class="title">manager</span>.</span></span><br><span class="line"><span class="function">	<span class="title">secretManager</span> <span class="title">secret</span>.<span class="title">Manager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">ConfigMap</span> <span class="title">manager</span>.</span></span><br><span class="line"><span class="function">	<span class="title">configMapManager</span> <span class="title">configmap</span>.<span class="title">Manager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Cached</span> <span class="title">MachineInfo</span> <span class="title">returned</span> <span class="title">by</span> <span class="title">cadvisor</span>.</span></span><br><span class="line"><span class="function">	<span class="title">machineInfo</span> *<span class="title">cadvisorapi</span>.<span class="title">MachineInfo</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Handles</span> <span class="title">certificate</span> <span class="title">rotations</span>.</span></span><br><span class="line"><span class="function">	<span class="title">serverCertificateManager</span> <span class="title">certificate</span>.<span class="title">Manager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">Syncs</span> <span class="title">pods</span> <span class="title">statuses</span> <span class="title">with</span> <span class="title">apiserver</span>; <span class="title">also</span> <span class="title">used</span> <span class="title">as</span> <span class="title">a</span> <span class="title">cache</span> <span class="title">of</span> <span class="title">statuses</span>.</span></span><br><span class="line"><span class="function">	<span class="title">statusManager</span> <span class="title">status</span>.<span class="title">Manager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// <span class="title">VolumeManager</span> <span class="title">runs</span> <span class="title">a</span> <span class="title">set</span> <span class="title">of</span> <span class="title">asynchronous</span> <span class="title">loops</span> <span class="title">that</span> <span class="title">figure</span> <span class="title">out</span> <span class="title">which</span></span></span><br><span class="line"><span class="function">	// <span class="title">volumes</span> <span class="title">need</span> <span class="title">to</span> <span class="title">be</span> <span class="title">attached</span>/<span class="title">mounted</span>/<span class="title">unmounted</span>/<span class="title">detached</span> <span class="title">based</span> <span class="title">on</span> <span class="title">the</span> <span class="title">pods</span></span></span><br><span class="line"><span class="function">	// <span class="title">scheduled</span> <span class="title">on</span> <span class="title">this</span> <span class="title">node</span> <span class="title">and</span> <span class="title">makes</span> <span class="title">it</span> <span class="title">so</span>.</span></span><br><span class="line"><span class="function">	<span class="title">volumeManager</span> <span class="title">volumemanager</span>.<span class="title">VolumeManager</span></span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">	// 以下省略</span></span><br><span class="line"><span class="function">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="那我们怎么才能让更新Config-Map一定触发Deployment滚动更新呢？"><a href="#那我们怎么才能让更新Config-Map一定触发Deployment滚动更新呢？" class="headerlink" title="那我们怎么才能让更新Config Map一定触发Deployment滚动更新呢？"></a>那我们怎么才能让更新Config Map一定触发Deployment滚动更新呢？</h2><p>可以通过修改 pod annotations 的方式强制触发滚动更新。这样一定会触发更新，亲测有效。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl patch deployment <span class="built_in">test</span>-deploy --patch <span class="string">'&#123;"spec": &#123;"template": &#123;"metadata": &#123;"annotations": &#123;"update": "2" &#125;&#125;&#125;&#125;&#125;'</span></span><br></pre></td></tr></table></figure>
+
+
+      
+
+      
+        <div class="page-reward">
+          <a href="javascript:;" class="page-reward-btn tooltip-top">
+            <div class="tooltip tooltip-east">
+            <span class="tooltip-item">
+              赏
+            </span>
+            <span class="tooltip-content">
+              <span class="tooltip-text">
+                <span class="tooltip-inner">
+                  <p class="reward-p"><i class="icon icon-quo-left"></i>谢谢你请我吃水果<i class="icon icon-quo-right"></i></p>
+                  <div class="reward-box">
+                    
+                    <div class="reward-box-item">
+                      <img class="reward-img" src="/img/alipay.jpg">
+                      <span class="reward-type">支付宝</span>
+                    </div>
+                    
+                    
+                    <div class="reward-box-item">
+                      <img class="reward-img" src="/img/wei.png">
+                      <span class="reward-type">微信</span>
+                    </div>
+                    
+                  </div>
+                </span>
+              </span>
+            </span>
+          </div>
+          </a>
+        </div>
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
 	<div class="article-category tagcloud">
 		<i class="icon-book icon"></i>
 		<ul class="article-tag-list">
@@ -199,363 +255,104 @@
 	</div>
 
 
+      
+
+      
+        
+<div class="share-btn share-icons tooltip-left">
+  <div class="tooltip tooltip-east">
+    <span class="tooltip-item">
+      <a href="javascript:;" class="share-sns share-outer">
+        <i class="icon icon-share"></i>
+      </a>
+    </span>
+    <span class="tooltip-content">
+      <div class="share-wrap">
+        <div class="share-icons">
+          <a class="weibo share-sns" href="javascript:;" data-type="weibo">
+            <i class="icon icon-weibo"></i>
+          </a>
+          <a class="weixin share-sns wxFab" href="javascript:;" data-type="weixin">
+            <i class="icon icon-weixin"></i>
+          </a>
+          <a class="qq share-sns" href="javascript:;" data-type="qq">
+            <i class="icon icon-qq"></i>
+          </a>
+          <a class="douban share-sns" href="javascript:;" data-type="douban">
+            <i class="icon icon-douban"></i>
+          </a>
+          <a class="qzone share-sns" href="javascript:;" data-type="qzone">
+            <i class="icon icon-qzone"></i>
+          </a>
+          <a class="facebook share-sns" href="javascript:;" data-type="facebook">
+            <i class="icon icon-facebook"></i>
+          </a>
+          <a class="twitter share-sns" href="javascript:;" data-type="twitter">
+            <i class="icon icon-twitter"></i>
+          </a>
+          <a class="google share-sns" href="javascript:;" data-type="google">
+            <i class="icon icon-google"></i>
+          </a>
         </div>
-        <div class="clearfix"></div>
-    </header>
+      </div>
+    </span>
+  </div>
+</div>
+
+<div class="page-modal wx-share js-wx-box">
+    <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
+    <p>扫一扫，分享到微信</p>
+    <div class="wx-qrcode">
+      <img src="//pan.baidu.com/share/qrcode?url=http://yoursite.com/2020/04/19/ConfigMap热更新/" alt="微信分享二维码">
+    </div>
+</div>
+
+<div class="mask js-mask"></div>
+      
+      <div class="clearfix"></div>
+    </div>
   </div>
 </article>
+
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/12/Kubernetes的Limits和Requests/" class="archive-article-date">
-  	<time datetime="2020-04-12T12:11:47.684Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-12</time>
-</a>
+<nav id="article-nav">
+  
+  
+    <a href="/2020/04/12/Kubernetes的Limits和Requests/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">kubernetes中的Requests和Limits</div>
+      <i class="icon-circle-right"></i>
+    </a>
+  
+</nav>
+
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
         </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/12/Kubernetes的Limits和Requests/">kubernetes中的Requests和Limits</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
+        
+        
+    </div>
+</aside>
 
 
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
+
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/Istio怎么劫持了流量/" class="archive-article-date">
-  	<time datetime="2020-04-05T10:43:51.816Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
   
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/Istio怎么劫持了流量/">Istio怎么劫持了流量</a>
-    </h1>
   
 
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/K8S集群日志收集方案/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:54:46.697Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/K8S集群日志收集方案/">K8S集群日志收集方案</a>
-    </h1>
   
 
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/自己动手搭建kubernetes dashboard界面/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:06:43.064Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/自己动手搭建kubernetes dashboard界面/">kubernetes dashboard</a>
-    </h1>
   
 
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/自己动手搭建Harbor镜像仓库/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:06:43.064Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/自己动手搭建Harbor镜像仓库/">自己动手搭建Harbor镜像仓库</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/k8s集群中部署Calico踩坑笔记/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:06:43.063Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/k8s集群中部署Calico踩坑笔记/">k8s集群部署Calico踩坑</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/山不在高/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:06:43.063Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/山不在高/">读书人要有读书人的样子</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-	<div class="article-tag tagcloud">
-		<i class="icon-price-tags icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color5">山不在高</a>
-        		</li>
-      		 
-        		<li class="article-tag-list-item">
-        			<a href="javascript:void(0)" class="js-tag article-tag-list-link color3">随笔</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-          
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/Golang 1.10 获取Windows上的硬件数据信息/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:06:43.062Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/Golang 1.10 获取Windows上的硬件数据信息/">Golang获取windows硬件数据</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Golang//" class="article-tag-list-link color2">Golang</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/Ansible-playbook 关于ssh的配置和使用/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:06:43.062Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/Ansible-playbook 关于ssh的配置和使用/">ansible中配置ssh</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Ansible//" class="article-tag-list-link color3">Ansible</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-  
-    </div></section>
-  
-
-    
 
 
           </div>
@@ -581,8 +378,8 @@
 	var yiliaConfig = {
 		mathjax: false,
 		isHome: false,
-		isPost: false,
-		isArchive: true,
+		isPost: true,
+		isArchive: false,
 		isTag: false,
 		isCategory: false,
 		open_in_new: false,
