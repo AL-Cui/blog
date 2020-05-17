@@ -6,15 +6,19 @@
   <meta name="renderer" content="webkit">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <link rel="dns-prefetch" href="http://yoursite.com">
-  <title>Category: Kubernetes | AL-Cui的技术水果摊</title>
+  <title>使用Keepalived挂载的VIP+Nodeport无法正常访问的解决方案 | AL-Cui的技术水果摊</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta property="og:type" content="website">
-<meta property="og:title" content="AL-Cui的技术水果摊">
-<meta property="og:url" content="http://yoursite.com/categories/Kubernetes/index.html">
+  <meta name="description" content="使用Keepalived挂载的VIP+Nodeport无法正常访问问题的产生之前在解决kube-apiserver高可用性的时候，采用了Keepalived来挂载VIP的方式，供客户通过这个VIP和相应的端口号来访问k8s集群服务和用户自己的服务。kube-proxy的proxy-mode很自然的选择了ipvs，这也是官方推荐的模式，没想到却给自己挖了坑。 事情是这样的，我们通过Keepalive">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用Keepalived挂载的VIP+Nodeport无法正常访问的解决方案">
+<meta property="og:url" content="http://yoursite.com/2020/05/17/k8s集群中VIP+NodePort无法访问/index.html">
 <meta property="og:site_name" content="AL-Cui的技术水果摊">
+<meta property="og:description" content="使用Keepalived挂载的VIP+Nodeport无法正常访问问题的产生之前在解决kube-apiserver高可用性的时候，采用了Keepalived来挂载VIP的方式，供客户通过这个VIP和相应的端口号来访问k8s集群服务和用户自己的服务。kube-proxy的proxy-mode很自然的选择了ipvs，这也是官方推荐的模式，没想到却给自己挖了坑。 事情是这样的，我们通过Keepalive">
 <meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2020-05-17T08:56:23.854Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="AL-Cui的技术水果摊">
+<meta name="twitter:title" content="使用Keepalived挂载的VIP+Nodeport无法正常访问的解决方案">
+<meta name="twitter:description" content="使用Keepalived挂载的VIP+Nodeport无法正常访问问题的产生之前在解决kube-apiserver高可用性的时候，采用了Keepalived来挂载VIP的方式，供客户通过这个VIP和相应的端口号来访问k8s集群服务和用户自己的服务。kube-proxy的proxy-mode很自然的选择了ipvs，这也是官方推荐的模式，没想到却给自己挖了坑。 事情是这样的，我们通过Keepalive">
   
     <link rel="alternative" href="/atom.xml" title="AL-Cui的技术水果摊" type="application/atom+xml">
   
@@ -156,37 +160,84 @@
             <canvas data-colors="#eaeaea" data-sectionHeight="100" data-contentId="js-content" id="myCanvas1" class="anm-canvas"></canvas>
           </div>
           <div id="js-content" class="content-ll">
-            
+            <article id="post-k8s集群中VIP+NodePort无法访问" class="article article-type-post " itemscope itemprop="blogPost">
+  <div class="article-inner">
+    
+      <header class="article-header">
+        
   
+    <h1 class="article-title" itemprop="name">
+      使用Keepalived挂载的VIP+Nodeport无法正常访问的解决方案
+    </h1>
   
-    
-    
-      
-      
-      <section class="archives-wrap">
-        <div class="archive-year-wrap">
-          <a href="/archives/2020" class="archive-year">2020</a>
-        </div>
-        <div class="archives">
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/05/17/k8s集群中VIP+NodePort无法访问/" class="archive-article-date">
+
+        
+        <a href="/2020/05/17/k8s集群中VIP+NodePort无法访问/" class="archive-article-date">
   	<time datetime="2020-05-17T08:55:34.235Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-05-17</time>
 </a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/05/17/k8s集群中VIP+NodePort无法访问/">使用Keepalived挂载的VIP+Nodeport无法正常访问的解决方案</a>
-    </h1>
-  
+        
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <h1 id="使用Keepalived挂载的VIP-Nodeport无法正常访问"><a href="#使用Keepalived挂载的VIP-Nodeport无法正常访问" class="headerlink" title="使用Keepalived挂载的VIP+Nodeport无法正常访问"></a>使用Keepalived挂载的VIP+Nodeport无法正常访问</h1><h2 id="问题的产生"><a href="#问题的产生" class="headerlink" title="问题的产生"></a>问题的产生</h2><p>之前在解决kube-apiserver高可用性的时候，采用了Keepalived来挂载VIP的方式，供客户通过这个VIP和相应的端口号来访问k8s集群服务和用户自己的服务。kube-proxy的proxy-mode很自然的选择了ipvs，这也是官方推荐的模式，没想到却给自己挖了坑。</p>
+<p>事情是这样的，我们通过Keepalived给集群节点挂载了一个VIP，想让用户把自己的服务通过NodePort暴露出来，然后用户就可以通过VIP+NodePort的方式访问自己的服务。这样就没必要通过物理节点的IP+NodePort的方式访问。因为集群的节点有多个，而VIP只有一个。在自己测试的时候发现并没有问题，但是后来提交测试的时候却出了问题，kube-proxy并没有给VIP增加相应的ipvs rules规则，流量也就不能通过VIP进入集群，这是为什么呢？</p>
+<h2 id="问题分析"><a href="#问题分析" class="headerlink" title="问题分析"></a>问题分析</h2><p>经过还原测试环境，发现了一个微小的变化。众所周知，<strong><em>我们在使用Keepalived配置VIP的时候，不但可以配置一个IP地址，还可以给IP加上掩码</em></strong>。<strong>如果你没有配置，默认掩码就是32位。碰巧那位测试人员，把VIP的掩码配置成了24位</strong>。那么问题就来了为什么在32位掩码情况下，kube-proxy就可以负载而24位情况小就不能了呢？问题的真相就要回归到源码上。我查看了kube-proxy的源码后，终于找出了问题的原因。原来，<strong>kube-proxy在ipvs模式下</strong>，发现IP并为其增加ipvs rules的方法是：</p>
+<figure class="highlight powershell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ip route show table local type local proto kernel</span><br></pre></td></tr></table></figure>
 
-        <div class="article-info info-on-right">
-          
-          
+<p>这条shell指令被用来发现本机的IPAddress，具体源码如下：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// GetLocalAddresses lists all LOCAL type IP addresses from host based on filter device.</span></span><br><span class="line"><span class="comment">// If dev is not specified, it's equivalent to exec:</span></span><br><span class="line"><span class="comment">// $ ip route show table local type local proto kernel</span></span><br><span class="line"><span class="comment">// 10.0.0.1 dev kube-ipvs0  scope host  src 10.0.0.1</span></span><br><span class="line"><span class="comment">// 10.0.0.10 dev kube-ipvs0  scope host  src 10.0.0.10</span></span><br><span class="line"><span class="comment">// 10.0.0.252 dev kube-ipvs0  scope host  src 10.0.0.252</span></span><br><span class="line"><span class="comment">// 100.106.89.164 dev eth0  scope host  src 100.106.89.164</span></span><br><span class="line"><span class="comment">// 127.0.0.0/8 dev lo  scope host  src 127.0.0.1</span></span><br><span class="line"><span class="comment">// 127.0.0.1 dev lo  scope host  src 127.0.0.1</span></span><br><span class="line"><span class="comment">// 172.17.0.1 dev docker0  scope host  src 172.17.0.1</span></span><br><span class="line"><span class="comment">// 192.168.122.1 dev virbr0  scope host  src 192.168.122.1</span></span><br><span class="line"><span class="comment">// Then cut the unique src IP fields,</span></span><br><span class="line"><span class="comment">// --&gt; result set: [10.0.0.1, 10.0.0.10, 10.0.0.252, 100.106.89.164, 127.0.0.1, 192.168.122.1]</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// If dev is specified, it's equivalent to exec:</span></span><br><span class="line"><span class="comment">// $ ip route show table local type local proto kernel dev kube-ipvs0</span></span><br><span class="line"><span class="comment">// 10.0.0.1  scope host  src 10.0.0.1</span></span><br><span class="line"><span class="comment">// 10.0.0.10  scope host  src 10.0.0.10</span></span><br><span class="line"><span class="comment">// Then cut the unique src IP fields,</span></span><br><span class="line"><span class="comment">// --&gt; result set: [10.0.0.1, 10.0.0.10]</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// If filterDev is specified, the result will discard route of specified device and cut src from other routes.</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *netlinkHandle)</span> <span class="title">GetLocalAddresses</span><span class="params">(dev, filterDev <span class="keyword">string</span>)</span> <span class="params">(sets.String, error)</span></span> &#123;</span><br><span class="line">	chosenLinkIndex, filterLinkIndex := <span class="number">-1</span>, <span class="number">-1</span></span><br><span class="line">	<span class="keyword">if</span> dev != <span class="string">""</span> &#123;</span><br><span class="line">		link, err := h.LinkByName(dev)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">"error get device %s, err: %v"</span>, filterDev, err)</span><br><span class="line">		&#125;</span><br><span class="line">		chosenLinkIndex = link.Attrs().Index</span><br><span class="line">	&#125; <span class="keyword">else</span> <span class="keyword">if</span> filterDev != <span class="string">""</span> &#123;</span><br><span class="line">		link, err := h.LinkByName(filterDev)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">"error get filter device %s, err: %v"</span>, filterDev, err)</span><br><span class="line">		&#125;</span><br><span class="line">		filterLinkIndex = link.Attrs().Index</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	routeFilter := &amp;netlink.Route&#123;</span><br><span class="line">		Table:    unix.RT_TABLE_LOCAL,</span><br><span class="line">		Type:     unix.RTN_LOCAL,</span><br><span class="line">		Protocol: unix.RTPROT_KERNEL,</span><br><span class="line">	&#125;</span><br><span class="line">	filterMask := netlink.RT_FILTER_TABLE | netlink.RT_FILTER_TYPE | netlink.RT_FILTER_PROTOCOL</span><br><span class="line"></span><br><span class="line">	<span class="comment">// find chosen device</span></span><br><span class="line">	<span class="keyword">if</span> chosenLinkIndex != <span class="number">-1</span> &#123;</span><br><span class="line">		routeFilter.LinkIndex = chosenLinkIndex</span><br><span class="line">		filterMask |= netlink.RT_FILTER_OIF</span><br><span class="line">	&#125;</span><br><span class="line">	routes, err := h.RouteListFiltered(netlink.FAMILY_ALL, routeFilter, filterMask)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">"error list route table, err: %v"</span>, err)</span><br><span class="line">	&#125;</span><br><span class="line">	res := sets.NewString()</span><br><span class="line">	<span class="keyword">for</span> _, route := <span class="keyword">range</span> routes &#123;</span><br><span class="line">		<span class="keyword">if</span> route.LinkIndex == filterLinkIndex &#123;</span><br><span class="line">			<span class="keyword">continue</span></span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">if</span> h.isIPv6 &#123;</span><br><span class="line">			<span class="keyword">if</span> route.Dst.IP.To4() == <span class="literal">nil</span> &amp;&amp; !route.Dst.IP.IsLinkLocalUnicast() &#123;</span><br><span class="line">				res.Insert(route.Dst.IP.String())</span><br><span class="line">			&#125;</span><br><span class="line">		&#125; <span class="keyword">else</span> <span class="keyword">if</span> route.Src != <span class="literal">nil</span> &#123;</span><br><span class="line">			res.Insert(route.Src.String())</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> res, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当我们给挂载的VIP配置了24位掩码时，就会发现，通过这条指令无法找到配置的VIP，找到的反而是当前网卡设备上原有的IP地址，所以Kube-proxy无法帮其增加ipvs rules。</p>
+<h2 id="问题解决方案"><a href="#问题解决方案" class="headerlink" title="问题解决方案"></a>问题解决方案</h2><p>为什么我之前说到配置kube-proxy的时候选择了ipvs模式给自己挖了个坑呢？因为，在原先使用的iptables模式下就没有这个问题，因为iptables模式下发现IPAddress使用了另外的方法。k8s之所以推荐ipvs主要原因还是在于，<strong>ipvs采用了hash table来存储规则，因此在规则较多的情况下，Ipvs相对iptables转发效率更高。除此以外，ipvs支持更多的LB算法</strong>。所以，</p>
+<ol>
+<li>解决方案一：<strong>牺牲一部分性能换回iptables模式</strong></li>
+<li>解决方案二：<strong>在配置Keepalived时不给用户提供掩码配置，默认采用32位掩码</strong></li>
+<li>解决方案三：<strong>修改kube-proxy代码，一劳永逸</strong></li>
+</ol>
+<h2 id="如何修改kube-proxy的代码"><a href="#如何修改kube-proxy的代码" class="headerlink" title="如何修改kube-proxy的代码"></a>如何修改kube-proxy的代码</h2><p>问题主要是kube-proxy中ipvs模式下GetLocalAddresses方法导致的，我们主要修改这个方法即可，提供一个方案给大家参考：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *netlinkHandle)</span> <span class="title">GetLocalAddresses</span><span class="params">(dev, filterDev <span class="keyword">string</span>)</span> <span class="params">(sets.String, error)</span></span> &#123;</span><br><span class="line">	<span class="keyword">var</span> ifaces []net.Interface</span><br><span class="line">	<span class="keyword">var</span> err error</span><br><span class="line">	<span class="keyword">var</span> filterIfaceIndex = <span class="number">-1</span></span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> dev != <span class="string">""</span> &#123;</span><br><span class="line">		<span class="comment">// get specified interface by name</span></span><br><span class="line">		iface, err := net.InterfaceByName(dev)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">"error get device %s, err: %v"</span>, dev, err)</span><br><span class="line">		&#125;</span><br><span class="line">		ifaces = []net.Interface&#123;*iface&#125;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="comment">// list all interfaces</span></span><br><span class="line">		ifaces, err = net.Interfaces()</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">"error list all interfaces: %v"</span>, err)</span><br><span class="line">		&#125;</span><br><span class="line">		filterLinkIndex = link.Attrs().Index</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> filterDev != <span class="string">""</span> &#123;</span><br><span class="line">		iface, err := net.InterfaceByName(filterDev)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">"error get filter device %s, err: %v"</span>, filterDev, err)</span><br><span class="line">		&#125;</span><br><span class="line">		filterIfaceIndex = iface.Index</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// iterate over each interface</span></span><br><span class="line">	<span class="keyword">for</span> _, iface := <span class="keyword">range</span> ifaces &#123;</span><br><span class="line">		<span class="comment">// skip filterDev</span></span><br><span class="line">		<span class="keyword">if</span> iface.Index == filterIfaceIndex &#123;</span><br><span class="line">			<span class="keyword">continue</span></span><br><span class="line">		&#125;</span><br><span class="line">		addrs, err := iface.Addrs()</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, fmt.Errorf(<span class="string">"error get IP addresses of interface %s: %v"</span>, iface.Name, err)</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="comment">// iterate over addresses on each interface</span></span><br><span class="line">		<span class="keyword">for</span> _, addr := <span class="keyword">range</span> addrs &#123;</span><br><span class="line">			<span class="keyword">var</span> ip net.IP</span><br><span class="line">			<span class="keyword">switch</span> v := addr.(<span class="keyword">type</span>) &#123;</span><br><span class="line">			<span class="keyword">case</span> *net.IPNet:</span><br><span class="line">				ip = v.IP</span><br><span class="line">			<span class="keyword">case</span> *net.IPAddr:</span><br><span class="line">				ip = v.IP</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">if</span> ip == <span class="literal">nil</span> || ip.IsLinkLocalUnicast() &#123;</span><br><span class="line">				<span class="keyword">continue</span></span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">if</span> h.isIPv6 &#123;</span><br><span class="line">				<span class="keyword">if</span> ip.To4() == <span class="literal">nil</span> &#123;</span><br><span class="line">					<span class="comment">// insert IPv6 addresses</span></span><br><span class="line">					res.Insert(ip.String())</span><br><span class="line">				&#125;</span><br><span class="line">			&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">				<span class="keyword">if</span> ip.To4() != <span class="literal">nil</span> &#123;</span><br><span class="line">					<span class="comment">// insert IPv4 addresses</span></span><br><span class="line">					res.Insert(ip.String())</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">return</span> res, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+      
+
+      
+        <div class="page-reward">
+          <a href="javascript:;" class="page-reward-btn tooltip-top">
+            <div class="tooltip tooltip-east">
+            <span class="tooltip-item">
+              赏
+            </span>
+            <span class="tooltip-content">
+              <span class="tooltip-text">
+                <span class="tooltip-inner">
+                  <p class="reward-p"><i class="icon icon-quo-left"></i>谢谢你请我吃水果<i class="icon icon-quo-right"></i></p>
+                  <div class="reward-box">
+                    
+                    <div class="reward-box-item">
+                      <img class="reward-img" src="/img/alipay.jpg">
+                      <span class="reward-type">支付宝</span>
+                    </div>
+                    
+                    
+                    <div class="reward-box-item">
+                      <img class="reward-img" src="/img/wei.png">
+                      <span class="reward-type">微信</span>
+                    </div>
+                    
+                  </div>
+                </span>
+              </span>
+            </span>
+          </div>
+          </a>
+        </div>
+      
+    </div>
+    <div class="article-info article-info-index">
+      
+      
+      
 	<div class="article-category tagcloud">
 		<i class="icon-book icon"></i>
 		<ul class="article-tag-list">
@@ -199,283 +250,104 @@
 	</div>
 
 
+      
+
+      
+        
+<div class="share-btn share-icons tooltip-left">
+  <div class="tooltip tooltip-east">
+    <span class="tooltip-item">
+      <a href="javascript:;" class="share-sns share-outer">
+        <i class="icon icon-share"></i>
+      </a>
+    </span>
+    <span class="tooltip-content">
+      <div class="share-wrap">
+        <div class="share-icons">
+          <a class="weibo share-sns" href="javascript:;" data-type="weibo">
+            <i class="icon icon-weibo"></i>
+          </a>
+          <a class="weixin share-sns wxFab" href="javascript:;" data-type="weixin">
+            <i class="icon icon-weixin"></i>
+          </a>
+          <a class="qq share-sns" href="javascript:;" data-type="qq">
+            <i class="icon icon-qq"></i>
+          </a>
+          <a class="douban share-sns" href="javascript:;" data-type="douban">
+            <i class="icon icon-douban"></i>
+          </a>
+          <a class="qzone share-sns" href="javascript:;" data-type="qzone">
+            <i class="icon icon-qzone"></i>
+          </a>
+          <a class="facebook share-sns" href="javascript:;" data-type="facebook">
+            <i class="icon icon-facebook"></i>
+          </a>
+          <a class="twitter share-sns" href="javascript:;" data-type="twitter">
+            <i class="icon icon-twitter"></i>
+          </a>
+          <a class="google share-sns" href="javascript:;" data-type="google">
+            <i class="icon icon-google"></i>
+          </a>
         </div>
-        <div class="clearfix"></div>
-    </header>
+      </div>
+    </span>
+  </div>
+</div>
+
+<div class="page-modal wx-share js-wx-box">
+    <a class="close js-modal-close" href="javascript:;"><i class="icon icon-close"></i></a>
+    <p>扫一扫，分享到微信</p>
+    <div class="wx-qrcode">
+      <img src="//pan.baidu.com/share/qrcode?url=http://yoursite.com/2020/05/17/k8s集群中VIP+NodePort无法访问/" alt="微信分享二维码">
+    </div>
+</div>
+
+<div class="mask js-mask"></div>
+      
+      <div class="clearfix"></div>
+    </div>
   </div>
 </article>
+
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/19/ConfigMap热更新/" class="archive-article-date">
-  	<time datetime="2020-04-19T12:37:09.373Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-19</time>
-</a>
+<nav id="article-nav">
+  
+  
+    <a href="/2020/04/19/ConfigMap热更新/" id="article-nav-older" class="article-nav-link-wrap">
+      <div class="article-nav-title">ConfigMap热更新</div>
+      <i class="icon-circle-right"></i>
+    </a>
+  
+</nav>
+
+
+<aside class="wrap-side-operation">
+    <div class="mod-side-operation">
+        
+        <div class="jump-container" id="js-jump-container" style="display:none;">
+            <a href="javascript:void(0)" class="mod-side-operation__jump-to-top">
+                <i class="icon-font icon-back"></i>
+            </a>
+            <div id="js-jump-plan-container" class="jump-plan-container" style="top: -11px;">
+                <i class="icon-font icon-plane jump-plane"></i>
+            </div>
         </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/19/ConfigMap热更新/">ConfigMap热更新</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
+        
+        
+    </div>
+</aside>
 
 
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
+
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/12/Kubernetes的Limits和Requests/" class="archive-article-date">
-  	<time datetime="2020-04-12T12:11:47.684Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-12</time>
-</a>
-        </div>
-    	 
   
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/12/Kubernetes的Limits和Requests/">kubernetes中的Requests和Limits</a>
-    </h1>
   
 
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/Istio怎么劫持了流量/" class="archive-article-date">
-  	<time datetime="2020-04-05T10:43:51.816Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/Istio怎么劫持了流量/">Istio怎么劫持了流量</a>
-    </h1>
   
 
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/K8S集群日志收集方案/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:54:46.697Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/K8S集群日志收集方案/">K8S集群日志收集方案</a>
-    </h1>
   
 
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
   
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/自己动手搭建Harbor镜像仓库/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:06:43.064Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/自己动手搭建Harbor镜像仓库/">自己动手搭建Harbor镜像仓库</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/自己动手搭建kubernetes dashboard界面/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:06:43.064Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/自己动手搭建kubernetes dashboard界面/">kubernetes dashboard</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-    
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      	<div class="article-meta">
-	      	<a href="/2020/04/05/k8s集群中部署Calico踩坑笔记/" class="archive-article-date">
-  	<time datetime="2020-04-05T03:06:43.063Z" itemprop="datePublished"><i class="icon-calendar icon"></i>2020-04-05</time>
-</a>
-        </div>
-    	 
-  
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2020/04/05/k8s集群中部署Calico踩坑笔记/">k8s集群部署Calico踩坑</a>
-    </h1>
-  
-
-        <div class="article-info info-on-right">
-          
-          
-	<div class="article-category tagcloud">
-		<i class="icon-book icon"></i>
-		<ul class="article-tag-list">
-			 
-        		<li class="article-tag-list-item">
-        			<a href="/categories/Kubernetes//" class="article-tag-list-link color1">Kubernetes</a>
-        		</li>
-      		
-		</ul>
-	</div>
-
-
-        </div>
-        <div class="clearfix"></div>
-    </header>
-  </div>
-</article>
-  
-  
-    </div></section>
-  
-
-    
 
 
           </div>
@@ -501,10 +373,10 @@
 	var yiliaConfig = {
 		mathjax: false,
 		isHome: false,
-		isPost: false,
+		isPost: true,
 		isArchive: false,
 		isTag: false,
-		isCategory: true,
+		isCategory: false,
 		open_in_new: false,
 		toc_hide_index: true,
 		root: "/",
